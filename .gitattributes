@@ -1,0 +1,4 @@
+# 全仓库一律 LF：仓库里、检出后都是 LF。
+# 属性文件的优先级高于 core.autocrlf，写在这里，别的 clone、别的机器、CI 都不必各自去关一遍；
+# pnpm-lock.yaml 这类工具生成的文件也不会在检出时变成 CRLF，从而不出现整文件 diff。
+* text=auto eol=lf

@@ -1,0 +1,24 @@
+# ============================================================================
+# dsh-tailnet-admin —— DSH bundle patch
+# ============================================================================
+# 这是插件的"挂载声明"：DSH 启动时按 bundle 层栈叠加各插件 patch，本文件把插件插入
+# web profile 的配置树。
+#
+# 安装：
+#   dsh plugin --profile web add @he0119/dsh-tailnet-admin
+# 本地开发：
+#   dsh plugin --profile web add link:<本目录绝对路径>
+#
+# 两个开关默认都是「什么都不做」；在这里给，或者用环境变量给（环境变量优先，见 README 的开关表）：
+#   pageHosts           哪些页面主机按「本机」处理（`.` 开头 = 后缀匹配，`*` = 全部）
+#   disableBrowserAuth  是否关闭浏览器会话校验（默认 false：保留认证）
+# ============================================================================
+
+- insert:
+    - id: tailnet-admin
+      # 带 scope 的包名必须加引号：`@` 是 YAML 的保留指示符，裸标量不能以它开头。
+      name: '@he0119/dsh-tailnet-admin'
+      # config:
+      #   pageHosts:
+      #     - .ts.net
+      #   disableBrowserAuth: true

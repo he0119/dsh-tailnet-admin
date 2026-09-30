@@ -1,0 +1,9 @@
+node_modules/
+lib/
+*.tsbuildinfo
+.typecheck/
+
+# 本地缓存与构建产物
+.pnpm-store/
+.npm-cache/
+*.tgz

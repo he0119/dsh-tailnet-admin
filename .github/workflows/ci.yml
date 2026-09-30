@@ -1,0 +1,40 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    # 这里不能再写 if 过滤：on.push.branches 已经让标签推送不触发本工作流，
+    # 而 Publish 以 workflow_call 调进来时 github 上下文仍属于调用方（tag push），
+    # 任何形如「push 到标签就跳过」的条件都会把发布前的这道检查一起跳过。
+    #
+    # 显式声明 contents: read：以 workflow_call 被 Publish 复用时，写在这里的权限对调用方也成立。
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      # pnpm 的版本不在 workflow 里写死：action-setup 读 package.json 的 packageManager，
+      # 与本地 corepack 用的是同一个版本。它必须排在 setup-node 前面——下面的 cache: pnpm 要靠它算 store 路径。
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          # 跟官方 DSH 的 engines 下限一致，确保插件不会无意中依赖更高版本的 Node。
+          node-version: 22.19.0
+          cache: pnpm
+      # 本仓库没有编译型依赖；安装带来 typescript、tsdown（它依赖的 rolldown 是预编译分发的平台绑定，
+      # 不在本机编译）与 @deepseek-ai/* 的类型声明。装完 pnpm 会跑 prepare，于是 lib/ 里的宿主单文件与
+      # 逐模块声明在这时就位。
+      # --frozen-lockfile：CI 只认仓库里那份 pnpm-lock.yaml，依赖漂移在这里就失败。
+      - run: pnpm install --frozen-lockfile
+      # 单元测试全部离线：测试里没有网络、没有端口、没有真实 DSH 实例。
+      - run: pnpm test
+      - run: pnpm run typecheck
+      - run: pnpm run build
