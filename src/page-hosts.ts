@@ -13,8 +13,8 @@
 /**
  * 单个主机是否命中规则表。
  *
- * 规则写法：`*` 命中一切；`.` 开头是后缀匹配（`.ts.net` 命中 `dsh.example.ts.net`，也命中
- * `ts.net` 本身）；其余为精确匹配。比较一律小写。
+ * 规则写法：`*` 命中一切；`.` 开头是**子域边界**匹配（`.ts.net` 命中 `dsh.example.ts.net`，
+ * **不**命中裸 `ts.net`，也不命中 `evilts.net`）；其余为精确匹配。比较一律小写。
  * @param hostname - 页面主机名（`location.hostname`，不带端口）。
  * @param patterns - 已规整的规则表（见 options.normalizePageHosts）。
  * @returns 命中任意一条即为 true。
