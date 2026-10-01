@@ -64,3 +64,11 @@ pnpm run build
 - 改了注入脚本的形状，就对着真实页面复核一次（浏览器里看 `<head>` 最前有没有那一行），别只信单测。
 - 改了开关语义（名字、默认值、环境变量），README 两份、`cordis.patch.yml` 的注释、`src/options.ts`
   的常量必须一起改 —— 这四处任何一处落后都是错的。
+
+## Git
+
+- **`main` 走 PR**：改动一律「推分支 → 开 PR → 合并」；PR 标题照约定式提交，Release 日志的分组靠它
+  （见 [docs/releasing.md](docs/releasing.md)）。这个仓库的 `main` 目前没有服务端 ruleset，这条靠约定，
+  `check` 由 CI 在 PR 上跑（`.github/workflows/ci.yml` 的 job id 就是它）。
+- **没有明确指示不合并**：推分支、开 PR、把 PR 链接与验证结果交出来是默认动作；合并这件事要等维护者
+  明说——`check` 绿了也只说明「可以合」，不说明「该我合」。
