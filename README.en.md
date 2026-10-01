@@ -23,7 +23,7 @@ browser-session check. The latter wants a cookie minted from `?token=`, bound to
 is regenerated on each start, and the cookie stops matching as soon as the authority changes.
 
 The plugin splits those into two independent switches: `pageHosts` for ①, `disableBrowserAuth` for ②. Rationale and
-cost live in [docs/internals.md](docs/internals.md).
+cost live in [.agents/notes/implemented/](.agents/notes/implemented) (Chinese).
 
 ## Install
 
