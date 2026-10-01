@@ -96,7 +96,6 @@ A systemd example:
 [Service]
 Environment=DSH_TAILNET_ADMIN_PAGE_HOSTS=.ts.net
 Environment=DSH_TAILNET_ADMIN_DISABLE_AUTH=1
-Environment=DSHW_ADMIN_HOSTS=dsh.example.ts.net
 ExecStart=%h/.npm/_npx/<hash>/node_modules/.bin/dsh web --host 127.0.0.1 --port 3080 \
   --trusted-host dsh.example.ts.net --no-open
 ```
