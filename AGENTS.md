@@ -1,7 +1,8 @@
 # AGENTS.md
 
 本仓库的协作约定，给 AI 助手与贡献者看。安装与用法在 [README](README.md)（英文版
-[README.en.md](README.en.md) 与它对齐），实现与取舍的「为什么」在 [docs/internals.md](docs/internals.md)，
+[README.en.md](README.en.md) 与它对齐），决策的依据与被放弃的做法在
+[.agents/notes/](.agents/notes/AGENTS.md)，当前机制与跨插件分工在 [docs/internals.md](docs/internals.md)，
 怎么构建与本地验证在 [docs/development.md](docs/development.md)，发布在
 [docs/releasing.md](docs/releasing.md)。文档、提交信息、给维护者的报告一律用中文。
 
@@ -13,9 +14,15 @@
 | --- | --- |
 | `README.md` / `README.en.md` | 装什么、怎么装、开关表、安全边界；两份的键与结构保持对齐 |
 | `AGENTS.md` | 本文件：协作约定、硬约束、提交信息口径、验证清单 |
-| `docs/internals.md` | 为什么这么做：两层栅栏的分解、默认值的选择、踩过的坑 |
+| `.agents/notes/` | 决策的依据、被否决的做法与代价；一条决策一篇，格式由 `test/notes.test.ts` 核 |
+| `docs/AGENTS.md` | `docs/` 这一层的文档规范与写作规则 |
+| `docs/internals.md` | 决策地图，以及没有记录承载的部分：跨插件的分工查表 |
 | `docs/development.md` | 怎么构建、怎么测、怎么装进一个 profile 手动验证 |
 | `docs/releasing.md` | 发布流程、包名与 scope、首版为什么必须手动发 |
+
+一次改动**引入了新的决策**（安全边界、默认值、对外契约、修掉一个有现象可查的缺陷）时，与代码同一个
+提交里写一篇记录，判据见 [.agents/notes/AGENTS.md](.agents/notes/AGENTS.md)；已经有一篇记录持有该
+决策就更新它，不新建重复记录。措辞调整与纯局部实现细节豁免。
 
 ## 硬约束
 
@@ -51,6 +58,9 @@ pnpm run build
 
 - `lib/` 不进 git，由 `prepare` 构建；因此**改了 `package.json` 的 `main`/`exports` 就要跑一次
   `pnpm run build` 再看效果**。
+- `test/notes.test.ts` 只核**声明**：`.agents/notes/` 下的路径形状、三行头部、`Status:` 与所在目录
+  是否一致、`## Problem` 是不是第一个二级标题、必备章节在不在、`implemented/` 里有没有混进提案
+  用语、相对链接能不能解析。改记录格式就同一次改动里改它。
 - 改了注入脚本的形状，就对着真实页面复核一次（浏览器里看 `<head>` 最前有没有那一行），别只信单测。
 - 改了开关语义（名字、默认值、环境变量），README 两份、`cordis.patch.yml` 的注释、`src/options.ts`
   的常量必须一起改 —— 这四处任何一处落后都是错的。

@@ -20,7 +20,7 @@
 要一个由 `?token=` 换来的、**按 authority 绑定**的 cookie；token 每次启动都重新生成，cookie 换地址即失效。
 
 插件把这两件事拆成两个独立开关：`pageHosts` 解决 ①，`disableBrowserAuth` 解决 ②。为什么这么默认、
-代价是什么，见 [docs/internals.md](docs/internals.md)。
+代价是什么，见 [.agents/notes/implemented/](.agents/notes/implemented)（中文）。
 
 ## 安装
 
