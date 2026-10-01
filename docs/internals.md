@@ -35,15 +35,13 @@
 
 - [apply 会跑不止一次，替换要记引用计数](../.agents/notes/implemented/bug-fix/2026-09-30-apply-runs-more-than-once.md)。
 
-## 与 `DSHW_ADMIN_HOSTS` 的关系
+## 跨插件的分工
 
-那是另一层、另一个插件的东西：`dsh-whale-widget` 自己有一道**写请求**栅栏，只认回环 Host 或它
-自己的 `DSHW_ADMIN_HOSTS` 列表，宿主给的 `--trusted-host` 它不读。两者容易混：
+域名下用得顺不顺，取决于几道互相独立的判定；本插件只动其中两条：
 
 | 需求 | 该动谁 |
 | --- | --- |
 | 设置页在域名下能用 | 本插件的 `pageHosts` |
 | 不想每次换 token | 本插件的 `disableBrowserAuth` |
-| 挂件（余额、音效等）在域名下能**保存** | `DSHW_ADMIN_HOSTS` |
 | `/api` 整体不被 403 | `dsh web --trusted-host <authority>` |
 | 配置管理插件的页面（备份/导入/配置管理） | 它自己的硬 `loopback-only` 栅栏，**任何环境变量都放不开**，只能走回环（SSH 隧道） |
