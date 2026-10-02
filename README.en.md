@@ -1,5 +1,7 @@
 # dsh-tailnet-admin
 
+<img src="assets/icon.svg" alt="dsh-tailnet-admin" width="88" height="88">
+
 Treat Tailnet / reverse-proxy pages as local: make DSH's settings pages work from a non-loopback origin, and
 optionally drop the browser session check (the Host/Origin fence stays).
 

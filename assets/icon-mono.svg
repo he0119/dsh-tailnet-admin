@@ -1,0 +1,12 @@
+<!--
+  dsh-tailnet-admin 单色标记：与 assets/icon.svg 同一套几何（盾 + 六边形拓扑环 + 核点），
+  去掉底色后整体放大、线宽按比例加粗，给 favicon、README 标题、深浅两种背景下的小尺寸使用。
+  颜色写死为品牌蓝而不是 currentColor：img 引用继承不到父级颜色，要内联进页面时自行替换。
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="dsh-tailnet-admin">
+  <path d="M256 56 L424 122 V266 C424 362 356 428 256 456 C156 428 88 362 88 266 V122 Z"
+        fill="none" stroke="#4D6BFE" stroke-width="44" stroke-linejoin="round"/>
+  <path d="M256 153 L340.9 202 L340.9 300 L256 349 L171.1 300 L171.1 202 Z"
+        fill="none" stroke="#4D6BFE" stroke-width="31" stroke-linejoin="round"/>
+  <circle cx="256" cy="251" r="34" fill="#4D6BFE"/>
+</svg>
