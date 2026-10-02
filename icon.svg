@@ -1,0 +1,21 @@
+<!--
+  DSH 插件清单图标：由 package.json 的 icon 字段指向，宿主按 dsh-app-boot 的 iconOf() 读成
+  base64 data URL，经 pluginInventory/list 的 entries[].meta.icon 交给客户端，在插件卡片里按
+  36×36（行位 30×30）原尺寸渲染，外面那圈描边圆角框由 UI 自己画。
+  所以这份文件是 36 基准、透明底、只有图形：不要加底色和外框，那些位置不归它管。
+  与 assets/icon.svg 同一套几何（盾 + 六边形拓扑环 + 核点），但线宽按 36px 显示尺寸重新配过：
+  直接缩放主图标在这个尺寸会偏细。改动时两份要一起看。
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 36 36" width="36" height="36" fill="none" role="img" aria-label="dsh-tailnet-admin">
+  <defs>
+    <linearGradient id="g" x1="18" y1="6" x2="18" y2="30" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#7CB7FF"/>
+      <stop offset="1" stop-color="#4A65E8"/>
+    </linearGradient>
+  </defs>
+  <path d="M18 5.906 L28.125 9.984 V18.703 C28.125 24.6 23.9 28.7 18 30.23 C12.1 28.7 7.875 24.6 7.875 18.703 V9.984 Z"
+        stroke="url(#g)" stroke-width="2.2" stroke-linejoin="round"/>
+  <path d="M18 11.52 L23.369 14.62 L23.369 20.82 L18 23.92 L12.631 20.82 L12.631 14.62 Z"
+        stroke="url(#g)" stroke-width="1.5" stroke-linejoin="round"/>
+  <circle cx="18" cy="17.72" r="2.3" fill="url(#g)"/>
+</svg>
