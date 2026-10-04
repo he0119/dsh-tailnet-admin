@@ -1,0 +1,24 @@
+<!--
+  dsh-tailnet-admin 图标（盾牌 + 六边形拓扑环）。
+  盾牌＝Host/Origin 栅栏保持不动；六边形环＝Tailnet / 反向代理的那一层网络；
+  中心核点＝被当作「本机」的那个页面。
+  不采用 Tailscale 的九点 mark：它是注册商标，官方要求社区项目不得以可能暗示官方关联或合作的
+  方式使用，而 app icon 正是产品身份位；本插件对任意反向代理域名同样适用，绑定单一网络还会
+  缩窄适用范围。网络这层语义由六边形拓扑母题承担，与九点方阵的区分度足够。
+  512 基准、圆角 116，颜色取自 DSH 品牌蓝 #4D6BFE。改动几何时三个文件要一起看：
+  assets/icon.svg、assets/icon-mono.svg、README 两份里的 width/height。
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="dsh-tailnet-admin">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#6E8CFF"/>
+      <stop offset="1" stop-color="#2A3AC8"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="116" fill="url(#bg)"/>
+  <path d="M256 84 L400 142 V266 C400 350 340 408 256 430 C172 408 112 350 112 266 V142 Z"
+        fill="none" stroke="#FFFFFF" stroke-width="26" stroke-linejoin="round"/>
+  <path d="M256 168 L328.7 210 L328.7 294 L256 336 L183.3 294 L183.3 210 Z"
+        fill="none" stroke="#FFFFFF" stroke-width="18" stroke-linejoin="round"/>
+  <circle cx="256" cy="252" r="30" fill="#FFFFFF"/>
+</svg>

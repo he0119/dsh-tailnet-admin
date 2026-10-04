@@ -1,5 +1,7 @@
 # dsh-tailnet-admin
 
+<img src="assets/icon.svg" alt="dsh-tailnet-admin" width="88" height="88">
+
 把 Tailnet / 反向代理页面当作「本机」来用：让 DSH 的设置页在非回环地址上可用，并按需关掉浏览器会话校验
 （Host/Origin 栅栏保持不动）。
 
