@@ -99,12 +99,18 @@ A systemd example:
 Environment=DSH_TAILNET_ADMIN_PAGE_HOSTS=.ts.net
 Environment=DSH_TAILNET_ADMIN_DISABLE_AUTH=1
 ExecStart=%h/.npm/_npx/<hash>/node_modules/.bin/dsh web --host 127.0.0.1 --port 3080 \
-  --trusted-host dsh.example.ts.net --no-open
+  --trusted-host dsh.example.ts.net --public-url https://dsh.example.ts.net/ --no-open
 ```
 
 > `--trusted-host` (or the connection plugin's `trustedHosts`) is a **separate** requirement: the `/api`
 > Host/Origin fence only accepts loopback or a declared authority. Turning on this plugin's switches without it
 > still ends in a 403 at the fence.
+>
+> `--public-url` (DSH `0.2.1-alpha.1` and later) is advertisement only: it changes the address DSH reports —
+> the printed and opened startup URL, `DSH_WEB_URL`, and the orientation handed to the model — and configures no
+> listener, routing, or cookie scope. It **grants no trust**, so it replaces none of this plugin's switches. What
+> it buys you is that the `?token=` exchange mints its cookie for the authority your browser actually uses,
+> instead of you transplanting the token by hand.
 
 ## Security boundary (read this)
 
