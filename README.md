@@ -92,12 +92,17 @@ systemd 部署的例子：
 Environment=DSH_TAILNET_ADMIN_PAGE_HOSTS=.ts.net
 Environment=DSH_TAILNET_ADMIN_DISABLE_AUTH=1
 ExecStart=%h/.npm/_npx/<hash>/node_modules/.bin/dsh web --host 127.0.0.1 --port 3080 \
-  --trusted-host dsh.example.ts.net --no-open
+  --trusted-host dsh.example.ts.net --public-url https://dsh.example.ts.net/ --no-open
 ```
 
 > `--trusted-host`（或 profile 里 connection 插件的 `trustedHosts`）是**另一条**独立要求：`/api` 的
 > Host/Origin 栅栏只认回环或声明过的 authority。只开本插件的开关、不给 `--trusted-host`，请求会在栅栏
 > 那一步就被 403 掉。
+>
+> `--public-url`（DSH `0.2.1-alpha.1` 起）是纯广告位：它只改 DSH 报出去的地址 —— 打印与打开的启动
+> URL、`DSH_WEB_URL`、给模型的方位提示；不配置监听、路由或 cookie 作用域，**也不放宽信任**，所以替不掉
+> 本插件的任何一个开关。它的用处是让 `?token=` 换 cookie 落在你真正使用的 authority 上，不必再手工把
+> token 搬到对外地址。
 
 ## 安全边界（必读）
 
