@@ -35,6 +35,13 @@
 
 - [apply 会跑不止一次，替换要记引用计数](../.agents/notes/implemented/bug-fix/2026-09-30-apply-runs-more-than-once.md)。
 
+**插件列表里那一行**
+
+- [标题与描述来自包导出的 locale 元信息](../.agents/notes/implemented/bug-fix/2026-10-08-plugin-title-comes-from-exported-locale.md)：
+  外壳读 `<包名>/locale/*.json` 的 `meta.title` / `meta.description`（`en.json` 是发现入口），读不到就
+  回退成包名——`en.json`、`zh.json`、`exports` 里的 `./locale/*.json` 三样缺一即静默回退；同一行的
+  图标是另一条路，走 `package.json` 的 `icon`。
+
 ## 跨插件的分工
 
 域名下用得顺不顺，取决于几道互相独立的判定；本插件只动其中两条：
