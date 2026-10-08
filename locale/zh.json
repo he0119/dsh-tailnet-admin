@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Tailnet 管理",
+    "description": "在 Tailnet 或反向代理域名下打开页面时，让设置页照常可用，并可关闭浏览器会话校验。"
+  }
+}
