@@ -1,16 +1,19 @@
+import type { Volatile } from '@deepseek-ai/cordis'
+
 import type { PluginConfig, ResolvedOptions } from './config.ts'
 
-/** 环境变量名（README 的开关表与这里必须逐字一致）。 */
-export const ENV_PAGE_HOSTS = 'DSH_TAILNET_ADMIN_PAGE_HOSTS'
-export const ENV_DISABLE_AUTH = 'DSH_TAILNET_ADMIN_DISABLE_AUTH'
-
 /**
- * 算作"开"的词表。
+ * 读一个 volatile 配置引用。
  *
- * 刻意**只认这几个**：写错的值（`ture`、`enable`）一律按"没开"处理。反向那种"只要不是 false 就算开"
- * 的解析会把一个手滑变成"关掉认证"，而这个开关的代价不是重跑一次就能挽回的。
+ * 为什么需要它：配置字段不是裸值，而是 Loader 就地提交的引用（见 config.ts），读值必须走 `.get()`。
+ * 引用缺席（`apply` 收到 `{}`）时给 `undefined`，由调用方按"没配置"处理。
+ * @param field - loader 传进来的配置字段。
+ * @returns 当前值；字段缺席时 undefined。
  */
-const TRUE_WORDS = new Set(['1', 'true', 'on', 'yes'])
+export function readVolatile<T>(field: Volatile<T> | undefined): T | undefined {
+  const candidate = field as { get?: () => T } | undefined
+  return typeof candidate?.get === 'function' ? candidate.get() : undefined
+}
 
 /** 规整规则表：去空白、转小写、丢掉空项与重复项（顺序保留）。 */
 export function normalizePageHosts(patterns: readonly string[] | undefined): string[] {
@@ -22,32 +25,17 @@ export function normalizePageHosts(patterns: readonly string[] | undefined): str
   return rules
 }
 
-/** 解析逗号分隔的页面主机表；环境变量未设置时返回 undefined（= 不覆盖配置）。 */
-export function parsePageHostsEnv(value: string | undefined): string[] | undefined {
-  return value === undefined ? undefined : normalizePageHosts(value.split(','))
-}
-
-/** 解析布尔开关；只认 TRUE_WORDS 里的写法，其余（含空串、缺省）一律 false。 */
-export function parseDisableAuthEnv(value: string | undefined): boolean {
-  return value !== undefined && TRUE_WORDS.has(value.trim().toLowerCase())
-}
-
 /**
- * 合并配置与环境变量：**环境变量优先**。
+ * 读一次配置，得到当前生效的两个开关。
  *
- * 环境变量放在 systemd unit 这类运维位置、改 profile 重装时不会被动到；配置放在 profile 的 patch 里、
- * 跟着插件配置走。两者都支持，冲突时以环境变量为准。
+ * 每次读都重新取值（见 readVolatile），因此"什么时候读"就是"哪一刻的配置"：调用点拿着这个结果
+ * 完成一次操作，中途配置再变也不会把这次操作撕成两半。
  * @param config - loader 传入的插件配置（可能缺省）。
- * @param env - 进程环境（测试里传假对象）。
- * @returns 最终生效的开关。
+ * @returns 当前生效的开关。
  */
-export function resolveOptions(
-  config: PluginConfig | undefined,
-  env: Readonly<Record<string, string | undefined>>,
-): ResolvedOptions {
-  const fromEnv = parsePageHostsEnv(env[ENV_PAGE_HOSTS])
+export function resolveOptions(config: PluginConfig | undefined): ResolvedOptions {
   return {
-    pageHosts: fromEnv ?? normalizePageHosts(config?.pageHosts),
-    disableBrowserAuth: parseDisableAuthEnv(env[ENV_DISABLE_AUTH]) || config?.disableBrowserAuth === true,
+    pageHosts: normalizePageHosts(readVolatile(config?.pageHosts)),
+    disableBrowserAuth: readVolatile(config?.disableBrowserAuth) === true,
   }
 }

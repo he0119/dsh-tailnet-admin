@@ -31,6 +31,13 @@
 - [两个开关默认都不做事](../.agents/notes/implemented/architecture/2026-09-30-switches-default-to-off.md)：
   默认值不改变这台机器的安全状态。
 
+**开关的取值只有一个来源**
+
+- [配置页是开关的唯一来源](../.agents/notes/implemented/architecture/2026-10-09-config-page-is-the-only-source.md)：
+  两个开关都是 volatile 字段（设置服务只投影这一种），页面挂在 `plugins.bundle.config`、写的就是 profile 的
+  `cordis.patch.yml` 里那一行的 `config`；环境变量那条路已删。改开关不重启：注入行每次渲染 index.html 时
+  重算，认证旁路在 `loader/volatile-update` 到达时对齐。
+
 **宿主会重放**
 
 - [apply 会跑不止一次，替换要记引用计数](../.agents/notes/implemented/bug-fix/2026-09-30-apply-runs-more-than-once.md)。
@@ -50,5 +57,6 @@
 | --- | --- |
 | 设置页在域名下能用 | 本插件的 `pageHosts` |
 | 不想每次换 token | 本插件的 `disableBrowserAuth` |
+| 改这两个开关 | 本插件的配置页（**设置 → 插件 → dsh-tailnet-admin**），等价地写 profile 的 `cordis.patch.yml` |
 | `/api` 整体不被 403 | `dsh web --trusted-host <authority>` |
-| 配置管理插件的页面（备份/导入/配置管理） | 它自己的硬 `loopback-only` 栅栏，**任何环境变量都放不开**，只能走回环（SSH 隧道） |
+| 配置管理插件的页面（备份/导入/配置管理） | 它自己的硬 `loopback-only` 栅栏，没有任何开关能放开，只能走回环（SSH 隧道） |

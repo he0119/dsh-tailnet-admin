@@ -32,10 +32,13 @@
    这是一个动认证边界的插件，"装了就生效"不是合适的默认值。
 2. **不动 Host/Origin 栅栏。** 认证那层（`browserAuth.isAuthenticated`）可以按开关替换；栅栏那层
    （`isTrustedApiRequest` / `trustedHosts`）不许碰，也不许在文档里暗示它可以放宽。
-3. **布尔量只认 `1` / `true` / `on` / `yes`。** 别改成"不是 false 就算真"：那会把一个手滑变成关认证。
-4. **不引入运行时依赖。** 产物里只允许出现宿主提供的模块（peerDependencies）。插件在宿主进程里跑，
-   多一个依赖就是多一份来源与版本风险。
-5. **不往产物里写死任何机器相关的值。** 主机名、路径、端口只能来自配置或环境变量。
+3. **布尔量只认真正的布尔。** `disableBrowserAuth` 在 schema 层就是 `z.boolean()`：写 `'true'` / `'1'` /
+   `'on'` 这类字符串会被 Loader **拒绝加载**（fail-closed），不许放宽成"解析字符串"或"不是 false 就算真"
+   —— 那会把一个手滑变成关认证。
+4. **不引入运行时依赖。** 产物里只允许出现宿主提供的模块（peerDependencies）：Host 端是包依赖，Web Client
+   端是平台基线模块表（`react` / `react/jsx-runtime` 与 `@deepseek-ai/dsh-client-ui-primitives`），其余一律
+   内联。插件在宿主进程与页面里跑，多一个依赖就是多一份来源与版本风险。
+5. **不往产物里写死任何机器相关的值。** 主机名、路径、端口只能来自配置。
 6. **注入的脚本必须让路。** `__DSH_TRANSPORT__` 已存在时（桌面壳）一律不覆盖；正文里不得出现
    `</script`。
 
@@ -56,14 +59,18 @@ pnpm run typecheck
 pnpm run build
 ```
 
-- `lib/` 不进 git，由 `prepare` 构建；因此**改了 `package.json` 的 `main`/`exports` 就要跑一次
-  `pnpm run build` 再看效果**。
+- `lib/` 不进 git，由 `prepare` 构建；因此**改了 `package.json` 的 `main`/`exports`/`dsh.client` 就要跑一次
+  `pnpm run build` 再看效果**。`lib/client.js` 是 Web Client 端唯一的入口，`test/client.test.ts` 直接读它
+  （产物不在时那组用例跳过），所以改了 `src/client/` 也要先构建再测。
 - `test/notes.test.ts` 只核**声明**：`.agents/notes/` 下的路径形状、三行头部、`Status:` 与所在目录
   是否一致、`## Problem` 是不是第一个二级标题、必备章节在不在、`implemented/` 里有没有混进提案
   用语、相对链接能不能解析。改记录格式就同一次改动里改它。
 - 改了注入脚本的形状，就对着真实页面复核一次（浏览器里看 `<head>` 最前有没有那一行），别只信单测。
-- 改了开关语义（名字、默认值、环境变量），README 两份、`cordis.patch.yml` 的注释、`src/options.ts`
-  的常量必须一起改 —— 这四处任何一处落后都是错的。
+- 改了开关语义（名字、默认值、取值来源），README 两份、`cordis.patch.yml` 的注释、`src/config.ts` 的
+  schema、以及配置页那两个字段（`src/client/rules.ts` 的规格与 `src/client/locales.ts` 的文案）必须一起改
+  —— 这几处任何一处落后都是错的。
+- 配置页的设置命名空间（`src/client/form.ts` 的 `SETTINGS_NS`）必须等于 profile 里那一行的 entry id：
+  `test/client.test.ts` 拿 `cordis.patch.yml` 核这一条。
 
 ## Git
 
