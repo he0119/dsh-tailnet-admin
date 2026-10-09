@@ -1,0 +1,89 @@
+/* 配置页样式：两个字段的排版。
+   官方设置页的类名是打包器哈希出来的私有产物，抄不到；这里抄的是它的配方——`.field` 竖排、字段之间
+   一条发丝线，标签 13px/500 用 primary，提示 12px 用 tertiary，输入框 0.5px 描边 + 圆角 + 第三层底色。
+   颜色只引用 dsh web 定义过的主题 token（`--dsw-alias-*`）并各带回退值，深浅色自动跟随。 */
+
+[data-dsh-tailnet-admin] .dta-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 0;
+}
+
+[data-dsh-tailnet-admin] .dta-field + .dta-field {
+  border-top: 0.5px solid var(--dsw-alias-border-l2, rgba(128, 128, 128, 0.28));
+}
+
+[data-dsh-tailnet-admin] .dta-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+[data-dsh-tailnet-admin] .dta-label {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.5;
+  color: var(--dsw-alias-label-primary, #e6e6e6);
+}
+
+[data-dsh-tailnet-admin] .dta-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+[data-dsh-tailnet-admin] .dta-input {
+  min-height: 68px;
+  padding: 7px 12px;
+  border: 0.5px solid var(--dsw-alias-border-l4, rgba(128, 128, 128, 0.4));
+  border-radius: var(--dsw-radius-md, 8px);
+  background: var(--dsw-alias-bg-layer-3, transparent);
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--dsw-alias-label-primary, #e6e6e6);
+  resize: vertical;
+}
+
+[data-dsh-tailnet-admin] .dta-input::placeholder {
+  color: var(--dsw-alias-label-tertiary, rgba(128, 128, 128, 0.9));
+}
+
+[data-dsh-tailnet-admin] .dta-input:focus-visible {
+  outline: none;
+  border-color: var(--dsw-alias-state-business-primary, #7aaaff);
+}
+
+[data-dsh-tailnet-admin] .dta-input:disabled {
+  color: var(--dsw-alias-label-tertiary, rgba(128, 128, 128, 0.9));
+  cursor: default;
+}
+
+[data-dsh-tailnet-admin] .dta-input[aria-invalid='true'] {
+  border-color: var(--dsw-alias-state-error-primary, #ff6b6b);
+}
+
+[data-dsh-tailnet-admin] .dta-hint {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--dsw-alias-label-tertiary, rgba(128, 128, 128, 0.9));
+}
+
+[data-dsh-tailnet-admin] .dta-invalid {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--dsw-alias-state-error-primary, #ff6b6b);
+}
+
+/* 认证边界那一段：这句话是这一页最该被读到的一行，用 error 色而不是 tertiary。 */
+[data-dsh-tailnet-admin] .dta-warn {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--dsw-alias-label-error, #ff6b6b);
+}

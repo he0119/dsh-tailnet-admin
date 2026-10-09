@@ -30,8 +30,8 @@ jobs:
           node-version: 22.19.0
           cache: pnpm
       # 本仓库没有编译型依赖；安装带来 typescript、tsdown（它依赖的 rolldown 是预编译分发的平台绑定，
-      # 不在本机编译）与 @deepseek-ai/* 的类型声明。装完 pnpm 会跑 prepare，于是 lib/ 里的宿主单文件与
-      # 逐模块声明在这时就位。
+      # 不在本机编译）与 @deepseek-ai/* 的类型声明。装完 pnpm 会跑 prepare，于是 lib/ 里的宿主单文件、
+      # Web Client 端的 lib/client.js 与逐模块声明在这时就位（客户端那组测试直接读产物，产物不在才跳过）。
       # --frozen-lockfile：CI 只认仓库里那份 pnpm-lock.yaml，依赖漂移在这里就失败。
       - run: pnpm install --frozen-lockfile
       # 单元测试全部离线：测试里没有网络、没有端口、没有真实 DSH 实例。

@@ -7,10 +7,16 @@
 
 ```sh
 pnpm install               # 会顺带跑 prepare = prebuild + build，也就是一次完整构建
-pnpm run build             # tsdown：lib/index.js（宿主）+ lib/types/（逐模块声明）
-pnpm run typecheck         # tsc -p tsconfig.test.json（src + test + 构建配置）
+pnpm run build             # tsdown：lib/index.js（宿主）+ lib/client.js（Web Client 端）+ lib/types/
+pnpm run typecheck         # 两个项目：tsconfig.test.json（src + test + 构建配置）与 tsconfig.client.json
 pnpm test                  # 单元测试，离线
 ```
+
+`pnpm run build` 出三个产物，分属 tsdown 的三份配置（`--filter "@he0119/dsh-tailnet-admin/<面>"` 可单独打）：
+Host 端 `lib/index.js`、Web Client 端 `lib/client.js`（经典脚本，`window.__ModuleLoader__.load` 报名）、
+逐模块声明 `lib/types/`。`test/client.test.ts` 直接读 `lib/client.js`（不存在时那组用例跳过），所以改了
+`src/client/` 要先构建再测。客户端那半侧的样式表在 `src/client/styles.css`，构建时被内联进产物 ——
+客户端模块系统没有旁挂 `.css` 的路由。
 
 包管理器是 pnpm，版本由 `package.json` 的 `packageManager` 钉在 `pnpm@12.6.0`，经 corepack 生效。
 两个与本仓库有关的坑：
@@ -42,8 +48,8 @@ npx @deepseek-ai/dsh plugin --profile web add link:/path/to/dsh-tailnet-admin
     pageHosts: [.ts.net]
 ```
 
-重启 DSH（systemd：`systemctl --user restart dsh-web`），然后按这三条逐一确认 —— 它们分别证明一件不同的
-事，任何一条不过就还没到"能用"：
+重启 DSH（systemd：`systemctl --user restart dsh-web`），然后按下面四条逐一确认 —— 它们分别证明一件不同
+的事，任何一条不过就还没到"能用"：
 
 ```sh
 # ① 插件到位：启动日志里有两行 [dsh-tailnet-admin]
@@ -61,8 +67,15 @@ curl -s -o /dev/null -w '%{http_code}\n' -X POST -H 'Host: evil.example.com' \
 域名页面，看 `<head>` 最前有没有那行脚本（DevTools 里 `view-source:` 最直观），以及设置页是否不再报
 `settings are unavailable in this browser`。
 
+④ 配置页（客户端半侧只有这一条能动行为，所以它必须真的走一遍）：**设置 → 插件 → dsh-tailnet-admin**
+应当出现两个控件与当前值；改一次 `disableBrowserAuth` 并保存，`~/.dsh/profiles/web/cordis.patch.yml` 里
+`tailnet-admin` 那一段当场变，日志里多一行 `[dsh-tailnet-admin] 配置已更新：…`，并且**不重启**就生效
+（②③ 此时要依然成立）。`pageHosts` 还没命中当前页面主机名时，页面的保存是内存模式（页面会明说"只写进
+这个浏览器"），这一步要么从回环地址做，要么先把 `pageHosts` 写进文件。
+
 ## 撤回
 
-这个插件不留任何持久状态，撤回就是两件事：把配置里的开关关掉（或删掉环境变量、删掉 `pageHosts` 那一段），
-重启。想彻底移除：从 `dsh.profile.bundles` 里删掉包名，可选再
+这个插件不留任何持久状态，撤回就是在配置页把两个开关关掉（或改回 `cordis.patch.yml` 里那两行），
+`disableBrowserAuth` 立刻恢复、`pageHosts` 下一次打开页面恢复，都不需要重启。想彻底移除：从
+`dsh.profile.bundles` 里删掉包名、重启，可选再
 `npx @deepseek-ai/dsh plugin --profile web remove @he0119/dsh-tailnet-admin`。

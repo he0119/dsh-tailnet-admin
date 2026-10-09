@@ -1,14 +1,18 @@
+/**
+ * 开关合并与规整：配置引用 → 当前生效的取值。
+ *
+ * 环境变量那条路删掉之后，这一层只剩两件事：把引用读成值（每次都读当前值），以及把规则表规整成
+ * 注入脚本与日志用的形状。为什么删掉环境变量，见
+ * `.agents/notes/implemented/architecture/2026-10-09-config-page-is-the-only-source.md`。
+ *
+ * @module dsh-tailnet-admin/test/options
+ */
+
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
-import {
-  ENV_DISABLE_AUTH,
-  ENV_PAGE_HOSTS,
-  normalizePageHosts,
-  parseDisableAuthEnv,
-  parsePageHostsEnv,
-  resolveOptions,
-} from '../src/options.ts'
+import { normalizePageHosts, readVolatile, resolveOptions } from '../src/options.ts'
+import { asPluginConfig, createConfig } from './helpers.ts'
 
 test('规整规则表：去空白、转小写、丢空项与重复项，顺序保留', () => {
   assert.deepEqual(normalizePageHosts([' .TS.net ', '', 'dsh.example.com', '.ts.net', '   ']), [
@@ -18,36 +22,32 @@ test('规整规则表：去空白、转小写、丢空项与重复项，顺序�
   assert.deepEqual(normalizePageHosts(undefined), [])
 })
 
-test('环境变量里的主机表按逗号切分；未设置 = 不覆盖', () => {
-  assert.equal(parsePageHostsEnv(undefined), undefined)
-  assert.deepEqual(parsePageHostsEnv('.ts.net, my.lan'), ['.ts.net', 'my.lan'])
-  assert.deepEqual(parsePageHostsEnv(''), [], '显式给空串 = 显式清空')
+test('读引用：值、默认值，以及"这次读到的是当前值"', () => {
+  const config = createConfig({ pageHosts: ['.ts.net'], disableBrowserAuth: true })
+  assert.deepEqual(resolveOptions(asPluginConfig(config)).pageHosts, ['.ts.net'])
+  assert.equal(resolveOptions(asPluginConfig(config)).disableBrowserAuth, true)
+
+  // Loader 就地提交新值之后，下一次读就是新值——插件靠这一点做到"改配置不重启"。
+  config.pageHosts.set(['dsh.example.com'])
+  config.disableBrowserAuth.set(false)
+  assert.deepEqual(resolveOptions(asPluginConfig(config)).pageHosts, ['dsh.example.com'])
+  assert.equal(resolveOptions(asPluginConfig(config)).disableBrowserAuth, false)
 })
 
-test('布尔开关只认 TRUE_WORDS，写错的值一律按"没开"', () => {
-  for (const value of ['1', 'true', 'TRUE', 'on', ' On ', 'yes']) {
-    assert.equal(parseDisableAuthEnv(value), true, `${value} 应算开`)
-  }
-  for (const value of [undefined, '', '0', 'false', 'off', 'no', 'ture', 'enable']) {
-    assert.equal(parseDisableAuthEnv(value), false, `${value} 应算没开`)
-  }
-})
-
-test('合并：环境变量优先于配置', () => {
-  const options = resolveOptions(
-    { pageHosts: ['from-config.example'], disableBrowserAuth: false },
-    { [ENV_PAGE_HOSTS]: 'from-env.example', [ENV_DISABLE_AUTH]: '1' },
-  )
-  assert.deepEqual(options.pageHosts, ['from-env.example'])
-  assert.equal(options.disableBrowserAuth, true)
-})
-
-test('合并：没有环境变量时用配置；两边都没有则为空、且保留认证', () => {
-  const fromConfig = resolveOptions({ pageHosts: ['.ts.net'], disableBrowserAuth: true }, {})
-  assert.deepEqual(fromConfig.pageHosts, ['.ts.net'])
-  assert.equal(fromConfig.disableBrowserAuth, true)
-
-  const empty = resolveOptions(undefined, {})
+test('缺省配置：引用缺席时按"没配置"处理（空表 + 保留认证）', () => {
+  const empty = resolveOptions(undefined)
   assert.deepEqual(empty.pageHosts, [])
   assert.equal(empty.disableBrowserAuth, false)
+
+  const partial = resolveOptions({})
+  assert.deepEqual(partial.pageHosts, [])
+  assert.equal(partial.disableBrowserAuth, false)
+})
+
+test('裸值不算数：字段得是引用，形状不对时一律按"没配置"', () => {
+  // 这是刻意的 fail-closed：真送到 `apply` 的永远是 Loader 解析出来的引用；万一有人手搓一个裸数组，
+  // 也不该被当成"规则表就是这个"。
+  const bogus = { pageHosts: ['.ts.net'], disableBrowserAuth: true }
+  assert.equal(readVolatile(bogus.pageHosts as never), undefined)
+  assert.deepEqual(resolveOptions(bogus as never).pageHosts, [])
 })

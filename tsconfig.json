@@ -20,5 +20,7 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true
   },
-  "include": ["src"]
+  // src/client 归 tsconfig.client.json（它要 DOM 与 JSX）；这一份是 Host 端的类型面。
+  "include": ["src"],
+  "exclude": ["src/client"]
 }

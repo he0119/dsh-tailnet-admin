@@ -67,11 +67,26 @@ enabling one edits exactly that array.
 Restart DSH afterwards (`systemctl --user restart dsh-web` for a systemd deployment). The startup log will show
 the `[dsh-tailnet-admin] …` lines when it is in place.
 
-### 3. Turn the switches on
+### 3. Turn the switches on (the config page)
+
+**Settings → Plugins → `dsh-tailnet-admin`**: the form sits right below the description on this plugin's own
+bundle page.
+
+- **Page hosts treated as this machine**: one per line. A leading `.` means suffix match (`.ts.net` matches
+  `a.ts.net`, not the bare `ts.net`), an exact hostname works too, and `*` matches everything.
+- **Skip the browser session check**: a switch, off by default; read "Security boundary" before turning it on.
+
+Press **Save**. `disableBrowserAuth` takes effect immediately, `pageHosts` applies to the **next page load**
+(refresh once); neither needs a DSH restart.
+
+> The first host needs a detour: until `pageHosts` matches the current page host, the browser side does not treat
+> these settings as persistable (see "What it solves"), and the page says so ("this browser only"). So either open
+> DSH **over a loopback address** (`http://localhost:3080`) once and fill it in there, or write the profile's
+> `cordis.patch.yml` directly:
 
 ```yaml
 # ~/.dsh/profiles/web/cordis.patch.yml
-- id: tailnet-admin
+- id: tailnet-admin            # this id is a fixed contract of the plugin: the config page reads this section by it, do not rename
   name: '@he0119/dsh-tailnet-admin'
   config:
     pageHosts:
@@ -81,23 +96,27 @@ the `[dsh-tailnet-admin] …` lines when it is in place.
 
 ## Switches
 
-| Switch | Environment variable | Default | Effect |
-| --- | --- | --- | --- |
-| `pageHosts` | `DSH_TAILNET_ADMIN_PAGE_HOSTS` | `[]` | Which page hosts count as local. A leading `.` means suffix match (`.ts.net` matches `a.ts.net`, not bare `ts.net`); `*` matches everything |
-| `disableBrowserAuth` | `DSH_TAILNET_ADMIN_DISABLE_AUTH` | `false` | Whether to drop the browser session check (token/cookie) |
+| Switch | Default | Effect |
+| --- | --- | --- |
+| `pageHosts` | `[]` | Which page hosts count as local. A leading `.` means suffix match; `*` matches everything |
+| `disableBrowserAuth` | `false` | Whether to drop the browser session check (token/cookie) |
 
-- **Environment variables win over config.** Both are supported: environment variables suit an ops-owned place
-  such as a systemd unit, config travels with the profile.
-- The environment host list is **comma separated**; an empty string clears it explicitly (overriding config).
-- Booleans accept **only** `1` / `true` / `on` / `yes` (case-insensitive). Anything else counts as off — the
-  reverse rule would turn a typo into "authentication disabled".
+Both places edit the same config: **the plugin config page** (`Settings → Plugins → dsh-tailnet-admin`) saves
+into exactly the `config` block of that profile `cordis.patch.yml` row. Editing the file by hand and editing the
+page are equivalent — there is no precedence.
 
-A systemd example:
+- One rule per line; the page also accepts commas, so a line copied from this document needs no editing.
+- Rules that can never match (`*.ts.net`, a scheme or port, embedded spaces) are **blocked at save time** on the
+  page: the injected script only understands `*`, a dot-prefixed suffix, and an exact hostname; anything else
+  would sit there silently doing nothing.
+- Booleans accept only real booleans (YAML `true` / `false`). A string such as `'true'` makes the Loader **refuse
+  the entry** rather than becoming an "on" — a typo must not end up disabling authentication.
+
+A systemd deployment only owns the fence layer; the two switches are not environment variables (see the decision
+record under [.agents/notes/implemented/](.agents/notes/implemented), in Chinese):
 
 ```ini
 [Service]
-Environment=DSH_TAILNET_ADMIN_PAGE_HOSTS=.ts.net
-Environment=DSH_TAILNET_ADMIN_DISABLE_AUTH=1
 ExecStart=%h/.npm/_npx/<hash>/node_modules/.bin/dsh web --host 127.0.0.1 --port 3080 \
   --trusted-host dsh.example.ts.net --public-url https://dsh.example.ts.net/ --no-open
 ```
@@ -125,18 +144,20 @@ ExecStart=%h/.npm/_npx/<hash>/node_modules/.bin/dsh web --host 127.0.0.1 --port 
   server-side decision.
 
 Suggested posture: enable `pageHosts` as needed, enable `disableBrowserAuth` only when the token really keeps
-interrupting you, and double-check that your Tailscale ACLs only admit your own devices. To revert, drop the
-environment variable (or set config back to `false`) and restart — there is no state to clean up.
+interrupting you, and double-check that your Tailscale ACLs only admit your own devices. To revert, turn the
+switches off on the config page (or edit those two lines in `cordis.patch.yml` back): `disableBrowserAuth` recovers
+immediately, `pageHosts` on the next page load, and there is no state to clean up.
 
 ## Troubleshooting
 
 | Symptom | Cause |
 | --- | --- |
-| Still `settings are unavailable in this browser` | `pageHosts` does not match the current page host (suffix rules need the dot: `.ts.net`), or DSH was not restarted |
+| Still `settings are unavailable in this browser` | `pageHosts` does not match the current page host (suffix rules need the dot: `.ts.net`), or the page was not refreshed |
 | Requests fail with 403 | The Host/Origin fence rejected them: add `--trusted-host <authority>` to `dsh web` |
-| Still asked for `?token=` | `disableBrowserAuth` is off, or the environment value is something unrecognized such as `ture` (only `1`/`true`/`on`/`yes` count) |
+| Still asked for `?token=` | `disableBrowserAuth` is off (the switch on the config page is not on) |
 | No `[dsh-tailnet-admin]` line in the startup log | The name is missing from `dsh.profile.bundles`, or the package is not installed (check with `dsh --profile web --dump-config \| grep tailnet-admin`) |
-| A config value has no effect | An environment variable of the same name is present, and it wins |
+| The config page says "this browser only" and the profile does not change | The current page is not treated as this machine: open DSH over loopback once, or edit `cordis.patch.yml` directly |
+| The config page says the section cannot be read | The `id` of that `cordis.patch.yml` row is not `tailnet-admin`, or the row is not enabled |
 
 ## Development
 

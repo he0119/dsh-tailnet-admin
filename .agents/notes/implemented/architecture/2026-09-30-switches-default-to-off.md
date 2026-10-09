@@ -22,7 +22,7 @@ Status: implemented
 
 ## Consequences
 
-- 环境变量走同一套语义：`DSH_TAILNET_ADMIN_DISABLE_AUTH` 只认 `1` / `true` / `on` / `yes`
-  （根 [AGENTS.md](../../../../AGENTS.md) 硬约束第 3 条），typo 一律按「没开」处理。
-- 环境变量优先于配置：环境变量在 systemd unit 这类运维位置，改 profile 重装不会被动到；配置跟着
-  插件配置走。两者冲突时以环境变量为准。
+- 两个开关的值只有一个来源：插件配置页（或等价地，profile 的 `cordis.patch.yml`）。环境变量那条路在
+  [2026-10-09-config-page-is-the-only-source.md](2026-10-09-config-page-is-the-only-source.md) 里整条删掉，
+  "typo 被宽容解析成开"这类风险从此由 schema 层挡（写错类型直接拒绝加载，见根
+  [AGENTS.md](../../../../AGENTS.md) 硬约束第 3 条）。
