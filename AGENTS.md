@@ -75,7 +75,14 @@ pnpm run build
 ## Git
 
 - **`main` 走 PR**：改动一律「推分支 → 开 PR → 合并」；PR 标题照约定式提交，Release 日志的分组靠它
-  （见 [docs/releasing.md](docs/releasing.md)）。这个仓库的 `main` 目前没有服务端 ruleset，这条靠约定，
-  `check` 由 CI 在 PR 上跑（`.github/workflows/ci.yml` 的 job id 就是它）。
+  （见 [docs/releasing.md](docs/releasing.md)）。`main` 上有一条启用的 `default` ruleset——禁删除、禁
+  强推、要求线性历史（`merge` 这类会留下 merge commit 的方式被拒，可用的是 squash 与 rebase），并要
+  求名为 `check` 的检查通过，那个名字就是 `.github/workflows/ci.yml` 的 job id。
+- **合并方式用 squash**：在服务端放行的两种里选 squash，main 上每个 PR 只留一笔，提交信息就是 PR
+  标题，所以分支内部怎么切、有几个提交都不影响 main 的形状。
+- **PR 小而单一**：squash 之后 main 上只剩 PR 标题，所以那个标题必须是这一笔改动的完整说明，一个 PR
+  一件事。一个分支上凑了几件事就拆成多个 PR；后面的改动依赖前面的改动时**叠成 stacked PR**（各自
+  以它前面那个分支为 base，前一个合了再把自己的 base 改回 main），不要为了少开 PR 把它们压进同一个
+  标题里。
 - **没有明确指示不合并**：推分支、开 PR、把 PR 链接与验证结果交出来是默认动作；合并这件事要等维护者
   明说——`check` 绿了也只说明「可以合」，不说明「该我合」。
