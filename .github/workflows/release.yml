@@ -99,5 +99,7 @@ jobs:
       - name: 触发 Publish 工作流
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # 这个 job 不 checkout，gh 需要知道仓库；否则会报 not a git repository。
+          GH_REPO: ${{ github.repository }}
           TAG: ${{ needs.tag.outputs.tag }}
         run: gh workflow run publish.yml --ref main -f tag="$TAG"
