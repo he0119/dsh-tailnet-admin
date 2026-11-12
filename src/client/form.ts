@@ -22,7 +22,7 @@ import type {
   SettingsFormShell,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 
-import { booleanField, pageHostsField } from './rules.ts'
+import { allowedUsersField, pageHostsField } from './rules.ts'
 
 /**
  * 设置命名空间。
@@ -34,18 +34,18 @@ import { booleanField, pageHostsField } from './rules.ts'
 export const SETTINGS_NS = 'tailnet-admin'
 
 /** 这一页编辑的两个字段（插件没有第三个配置项）。 */
-export const FIELDS = Object.freeze(['pageHosts', 'disableBrowserAuth'] as const)
+export const FIELDS = Object.freeze(['pageHosts', 'allowedUsers'] as const)
 
 /** 这一段设置里这一页读写的形状。 */
 export interface TailnetAdminSettings {
   pageHosts?: string[]
-  disableBrowserAuth?: boolean
+  allowedUsers?: string[]
 }
 
 /** 页面渲染需要的投影：表单外壳状态 + 两个字段各自的草稿状态。 */
 export interface TailnetAdminCardState extends SettingsFormShell {
   pageHosts: SettingsFieldState
-  disableBrowserAuth: SettingsFieldState
+  allowedUsers: SettingsFieldState
 }
 
 /**
@@ -94,7 +94,7 @@ export function createCardForm(
 ): SettingsFormModel<TailnetAdminSettings> {
   return new SettingsFormModel<TailnetAdminSettings>(scope, [
     pageHostsField(FIELDS[0]),
-    booleanField(FIELDS[1]),
+    allowedUsersField(FIELDS[1]),
   ])
 }
 
@@ -107,7 +107,7 @@ export function bindCard(form: SettingsFormModel<TailnetAdminSettings>): CardSou
   return form.bind(() => ({
     ...form.shell(),
     pageHosts: form.field(FIELDS[0]),
-    disableBrowserAuth: form.field(FIELDS[1]),
+    allowedUsers: form.field(FIELDS[1]),
   }))
 }
 

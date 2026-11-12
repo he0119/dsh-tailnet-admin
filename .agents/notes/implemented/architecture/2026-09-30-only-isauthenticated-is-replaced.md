@@ -34,3 +34,7 @@ requestRejection = isTrustedApiRequest(host, trustedHosts)   // Host/Origin 栅�
   宁可不动也不能猜着动。
 - 「不动栅栏」同时是根 [AGENTS.md](../../../../AGENTS.md) 里的一条硬约束，文档里也不得暗示它
   可以放宽。
+
+> 后续：本记录里「换成常量 `true`」的那一半已被
+> [认证旁路改成 Tailscale 用户白名单](2026-11-12-tailscale-user-allowlist.md) 取代；替换点仍在
+> `isAuthenticated` 这一层、栅栏不动的结论不变。

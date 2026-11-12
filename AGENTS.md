@@ -12,7 +12,7 @@
 
 | 文档 | 写什么 |
 | --- | --- |
-| `README.md` / `README.en.md` | 装什么、怎么装、开关表、安全边界；两份的键与结构保持对齐 |
+| `README.md` / `README.en.md` | 装什么、怎么装、配置表、安全边界；两份的键与结构保持对齐 |
 | `AGENTS.md` | 本文件：协作约定、硬约束、提交信息口径、验证清单 |
 | `.agents/notes/` | 决策的依据、被否决的做法与代价；一条决策一篇，格式由 `test/notes.test.ts` 核 |
 | `docs/AGENTS.md` | `docs/` 这一层的文档规范与写作规则 |
@@ -28,13 +28,14 @@
 
 改动不得越过这几条；越过之前先在这里说清楚理由：
 
-1. **两个开关默认都不做事。** `pageHosts` 默认空表（不注入），`disableBrowserAuth` 默认 `false`。
-   这是一个动认证边界的插件，"装了就生效"不是合适的默认值。
-2. **不动 Host/Origin 栅栏。** 认证那层（`browserAuth.isAuthenticated`）可以按开关替换；栅栏那层
-   （`isTrustedApiRequest` / `trustedHosts`）不许碰，也不许在文档里暗示它可以放宽。
-3. **布尔量只认真正的布尔。** `disableBrowserAuth` 在 schema 层就是 `z.boolean()`：写 `'true'` / `'1'` /
-   `'on'` 这类字符串会被 Loader **拒绝加载**（fail-closed），不许放宽成"解析字符串"或"不是 false 就算真"
-   —— 那会把一个手滑变成关认证。
+1. **两项配置默认都不做事。** `pageHosts` 默认空表（不注入），`allowedUsers` 默认空表（不碰认证）。
+   这是一个动认证边界的插件，"装了就生效"不是合适的默认值。空名单是"不做事"，不是"拒绝所有人"——
+   别把一个手滑变成全员被挡。
+2. **不动 Host/Origin 栅栏。** 认证那层（`browserAuth.isAuthenticated`，存在时还有 `authenticateApi`）
+   可以按名单替换；栅栏那层（`isTrustedApiRequest` / `trustedHosts`）不许碰，也不许在文档里暗示它可以放宽。
+3. **名单只做精确匹配。** `allowedUsers` 在 schema 层是 `z.array(String)`，判断是「转小写后整串相等」；
+   不许加通配符、后缀、正则或显示名匹配。登录名只接受可打印 ASCII（Tailscale 对非 ASCII 值做 RFC2047
+   编码，整串对不上）。空串与重复项在读取时丢掉，但 schema 不许把单个字符串猜成一项。
 4. **不引入运行时依赖。** 产物里只允许出现宿主提供的模块（peerDependencies）：Host 端是包依赖，Web Client
    端是平台基线模块表（`react` / `react/jsx-runtime` 与 `@deepseek-ai/dsh-client-ui-primitives`），其余一律
    内联。插件在宿主进程与页面里跑，多一个依赖就是多一份来源与版本风险。
@@ -66,7 +67,7 @@ pnpm run build
   是否一致、`## Problem` 是不是第一个二级标题、必备章节在不在、`implemented/` 里有没有混进提案
   用语、相对链接能不能解析。改记录格式就同一次改动里改它。
 - 改了注入脚本的形状，就对着真实页面复核一次（浏览器里看 `<head>` 最前有没有那一行），别只信单测。
-- 改了开关语义（名字、默认值、取值来源），README 两份、`cordis.patch.yml` 的注释、`src/config.ts` 的
+- 改了配置语义（名字、默认值、取值来源），README 两份、`cordis.patch.yml` 的注释、`src/config.ts` 的
   schema、以及配置页那两个字段（`src/client/rules.ts` 的规格与 `src/client/locales.ts` 的文案）必须一起改
   —— 这几处任何一处落后都是错的。
 - 配置页的设置命名空间（`src/client/form.ts` 的 `SETTINGS_NS`）必须等于 profile 里那一行的 entry id：

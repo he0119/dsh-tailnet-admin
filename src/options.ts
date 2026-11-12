@@ -26,16 +26,31 @@ export function normalizePageHosts(patterns: readonly string[] | undefined): str
 }
 
 /**
- * 读一次配置，得到当前生效的两个开关。
+ * 规整用户名单：去空白、转小写、丢掉空项与重复项（顺序保留）。
+ *
+ * 只做"能不能比较"，不判断"是不是一个真的登录名"：写错的条目匹配不到任何人，效果与没写一样。
+ * 页面那边会在保存前挡住明显写不中的形状（见 src/client/rules.ts）。
+ */
+export function normalizeAllowedUsers(users: readonly string[] | undefined): string[] {
+  const allowed: string[] = []
+  for (const raw of users ?? []) {
+    const login = String(raw).trim().toLowerCase()
+    if (login !== '' && !allowed.includes(login)) allowed.push(login)
+  }
+  return allowed
+}
+
+/**
+ * 读一次配置，得到当前生效的两项配置。
  *
  * 每次读都重新取值（见 readVolatile），因此"什么时候读"就是"哪一刻的配置"：调用点拿着这个结果
  * 完成一次操作，中途配置再变也不会把这次操作撕成两半。
  * @param config - loader 传入的插件配置（可能缺省）。
- * @returns 当前生效的开关。
+ * @returns 当前生效的取值。
  */
 export function resolveOptions(config: PluginConfig | undefined): ResolvedOptions {
   return {
     pageHosts: normalizePageHosts(readVolatile(config?.pageHosts)),
-    disableBrowserAuth: readVolatile(config?.disableBrowserAuth) === true,
+    allowedUsers: normalizeAllowedUsers(readVolatile(config?.allowedUsers)),
   }
 }

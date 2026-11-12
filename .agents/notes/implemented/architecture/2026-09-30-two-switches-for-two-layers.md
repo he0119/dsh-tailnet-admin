@@ -1,4 +1,4 @@
-# Agent Note: 两个开关，各自只动一层
+# Agent Note: 两项配置，各自只动一层
 
 Status: implemented
 
@@ -29,13 +29,13 @@ requestRejection = isTrustedApiRequest(host, trustedHosts)   // 栅栏：回环�
 
 ## Decision
 
-拆成两个独立开关，各自只动一层：
+拆成两项独立配置，各自只动一层：
 
 - `pageHosts` 只动 ①：往启动 HTML 注入一行，把命中的页面标记成
   `globalThis.__DSH_TRANSPORT__ = { ownsHost: true }`。它不改变服务端的任何判定。
-- `disableBrowserAuth` 只动 ② 的**后一半**：把 `browserAuth.isAuthenticated` 换成常量
-  true，栅栏那一半原样保留（见
-  [只替换 isAuthenticated](2026-09-30-only-isauthenticated-is-replaced.md)）。
+- `allowedUsers` 只动 ② 的**后一半**：把 `browserAuth.isAuthenticated`（以及存在时的
+  `authenticateApi`）换成「只放行名单里的 `Tailscale-User-Login`」，栅栏那一半原样保留（见
+  [认证旁路改成 Tailscale 用户白名单](2026-11-12-tailscale-user-allowlist.md)）。
 
 ## Alternatives considered
 
@@ -47,5 +47,5 @@ requestRejection = isTrustedApiRequest(host, trustedHosts)   // 栅栏：回环�
 
 ## Consequences
 
-- 两个开关可以各自单独使用，README 的开关表因此按「想解决哪一件事」组织。
+- 两项配置可以各自单独使用，README 的配置表因此按「想解决哪一件事」组织。
 - 两层的失败表现互不掩盖：设置页报 `unavailable` 是 ① 没生效，反复要 token 是 ② 没生效。

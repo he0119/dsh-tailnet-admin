@@ -6,12 +6,13 @@ Status: implemented
 
 实测启动日志里插件那句出现了两轮——宿主会重放 `inject` 回调（服务重建、HMR 之类的路径）。
 
-认证替换如果没有计数，「第一轮的清理」会把**还在生效的那一轮**一起拆掉：使用者看到的是「开关开着，
-却仍然要重新换 token」。
+认证替换如果没有计数，「第一轮的清理」会把**还在生效的那一轮**一起拆掉：使用者看到的是「名单里明明
+有我，却仍然要重新换 token」。
 
 ## Decision
 
-`src/browser-auth.ts` 用 `WeakMap<BrowserAuthLike, { original, refs }>` 记引用计数：
+`src/browser-auth.ts` 用 `WeakMap<BrowserAuthLike, PatchEntry>` 记引用计数（条目里存两个原方法与
+当前名单）：
 
 - 重复安装只加计数（句柄的 `patched` 为 false），最后一次 `restore` 才真正还原原型上的方法；
 - 每个句柄的 `restore()` 幂等（内部 `released` 标志），重复调用不会多减计数；
@@ -34,4 +35,4 @@ Status: implemented
 ## Consequences
 
 - `patch.patched` 让日志能分开「这次真的替换了」与「只加了引用计数」——排查时先看这两句。
-- 开关关掉再打开不会累积替换：计数归零即还原，下一轮重新装。
+- 名单清空再填上不会累积替换：计数归零即还原，下一轮重新装。

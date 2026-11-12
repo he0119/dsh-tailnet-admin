@@ -10,7 +10,7 @@
 
 **两件事是怎么分开的**
 
-- [两个开关，各自只动一层](../.agents/notes/implemented/architecture/2026-09-30-two-switches-for-two-layers.md)：
+- [两项配置，各自只动一层](../.agents/notes/implemented/architecture/2026-09-30-two-switches-for-two-layers.md)：
   ① 的判定在浏览器端（`isLoopback`），② 的判定在服务端（栅栏 + 会话认证），`--trusted-host`
   只喂后者。
 
@@ -21,21 +21,23 @@
 - [主机规则是子域边界匹配](../.agents/notes/implemented/architecture/2026-09-30-host-rules-are-subdomain-bounded.md)：
   `.ts.net` 命中子域、不命中裸域名，也不命中 `evilts.net`。
 
-**② 免掉每次换 token**
+**② 免掉每次换 token，但只放行指定的人**
 
 - [只替换 isAuthenticated，不拆栅栏](../.agents/notes/implemented/architecture/2026-09-30-only-isauthenticated-is-replaced.md)：
-  收益是「谁都能进」，代价也止于这里。
+  替换点留在认证这一层，栅栏不动的结论仍然成立。
+- [认证旁路改成 Tailscale 用户白名单](../.agents/notes/implemented/architecture/2026-11-12-tailscale-user-allowlist.md)：
+  读 `Tailscale-User-Login`，名单内放行、名单外拒绝、没带头回落 token。
 
 **安全上的共同表态**
 
-- [两个开关默认都不做事](../.agents/notes/implemented/architecture/2026-09-30-switches-default-to-off.md)：
+- [两项配置默认都不做事](../.agents/notes/implemented/architecture/2026-09-30-switches-default-to-off.md)：
   默认值不改变这台机器的安全状态。
 
-**开关的取值只有一个来源**
+**配置的取值只有一个来源**
 
-- [配置页是开关的唯一来源](../.agents/notes/implemented/architecture/2026-10-09-config-page-is-the-only-source.md)：
-  两个开关都是 volatile 字段（设置服务只投影这一种），页面挂在 `plugins.bundle.config`、写的就是 profile 的
-  `cordis.patch.yml` 里那一行的 `config`；环境变量那条路已删。改开关不重启：注入行每次渲染 index.html 时
+- [配置页是配置的唯一来源](../.agents/notes/implemented/architecture/2026-10-09-config-page-is-the-only-source.md)：
+  两项配置都是 volatile 字段（设置服务只投影这一种），页面挂在 `plugins.bundle.config`、写的就是 profile 的
+  `cordis.patch.yml` 里那一行的 `config`；环境变量那条路已删。改配置不重启：注入行每次渲染 index.html 时
   重算，认证旁路在 `loader/volatile-update` 到达时对齐。
 
 **宿主会重放**
@@ -51,12 +53,13 @@
 
 ## 跨插件的分工
 
-域名下用得顺不顺，取决于几道互相独立的判定；本插件只动其中两条：
+域名下用得顺不顺，取决于几道互相独立的判定；本插件只负责其中与它有关的两项：
 
 | 需求 | 该动谁 |
 | --- | --- |
 | 设置页在域名下能用 | 本插件的 `pageHosts` |
-| 不想每次换 token | 本插件的 `disableBrowserAuth` |
-| 改这两个开关 | 本插件的配置页（**设置 → 插件 → dsh-tailnet-admin**），等价地写 profile 的 `cordis.patch.yml` |
+| 不想每次换 token，但仍只想让指定的人进 | 本插件的 `allowedUsers`（Tailscale 登录名名单） |
+| 请求者的 Tailscale 身份从哪来 | `tailscale serve` 加的 `Tailscale-User-Login`（Funnel 与 tagged device 没有） |
+| 改这两项配置 | 本插件的配置页（**设置 → 插件 → dsh-tailnet-admin**），等价地写 profile 的 `cordis.patch.yml` |
 | `/api` 整体不被 403 | `dsh web --trusted-host <authority>` |
 | 配置管理插件的页面（备份/导入/配置管理） | 它自己的硬 `loopback-only` 栅栏，没有任何开关能放开，只能走回环（SSH 隧道） |

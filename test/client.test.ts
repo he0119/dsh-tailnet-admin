@@ -25,7 +25,14 @@ import { test } from 'node:test'
 import { fileURLToPath } from 'node:url'
 import vm from 'node:vm'
 
-import { booleanField, isUsablePageHost, pageHostsField, splitPageHostsDraft } from '../src/client/rules.ts'
+import {
+  allowedUsersField,
+  isUsableAllowedUser,
+  isUsablePageHost,
+  pageHostsField,
+  splitAllowedUsersDraft,
+  splitPageHostsDraft,
+} from '../src/client/rules.ts'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const BUNDLE = join(ROOT, 'lib/client.js')
@@ -70,15 +77,38 @@ test('规则表字段：值↔文本的换算，空文本 = 从用户层去掉�
   assert.equal(field.parse('.ts.net\n*.ts.net'), undefined, '只要有一条命不中，整次保存就不该发生')
 })
 
-test('布尔字段：草稿就是 true/false，空串回落，别的文本不产生写入', () => {
-  const field = booleanField('disableBrowserAuth')
-  assert.equal(field.format(true), 'true')
-  assert.equal(field.format(false), 'false')
+test('用户名单：只有完整的 ASCII 登录名算可用', () => {
+  for (const user of ['alice@example.com', 'he0119@github', 'a+b@example.co.uk', 'user.name@example.com']) {
+    assert.equal(isUsableAllowedUser(user), true, `${user} 应当算可用`)
+  }
+  for (const user of ['', ' alice@example.com', 'alice @example.com', '*', '*.example.com', 'alice,bob', '张三', '张三@example.com']) {
+    assert.equal(isUsableAllowedUser(user), false, `${user} 匹配不到任何登录名，应当算不可用`)
+  }
+})
+
+test('用户名单草稿：按行与逗号切，去空白、丢空项', () => {
+  assert.deepEqual(splitAllowedUsersDraft('alice@example.com\nbob@example.com'), [
+    'alice@example.com',
+    'bob@example.com',
+  ])
+  assert.deepEqual(splitAllowedUsersDraft(' alice@example.com , , bob@example.com\n\n'), [
+    'alice@example.com',
+    'bob@example.com',
+  ])
+  assert.deepEqual(splitAllowedUsersDraft('   '), [])
+})
+
+test('用户名单字段：值↔文本的换算，空文本 = 从用户层去掉这一项', () => {
+  const field = allowedUsersField('allowedUsers')
+  assert.equal(field.format(['alice@example.com', 'bob@example.com']), 'alice@example.com\nbob@example.com')
   assert.equal(field.format(undefined), '')
-  assert.deepEqual(field.parse('true'), { kind: 'set', value: true })
-  assert.deepEqual(field.parse('false'), { kind: 'set', value: false })
-  assert.deepEqual(field.parse(''), { kind: 'clear' })
-  assert.equal(field.parse('yes'), undefined)
+  assert.deepEqual(field.parse('alice@example.com\n\nbob@example.com'), {
+    kind: 'set',
+    value: ['alice@example.com', 'bob@example.com'],
+  })
+  assert.deepEqual(field.parse('  '), { kind: 'clear' })
+  assert.equal(field.parse('*'), undefined, '通配符不产生写入：官方表单据此挡住保存')
+  assert.equal(field.parse('alice@example.com\n张三'), undefined, '只要有一条不匹配，整次保存就不该发生')
 })
 
 // ------------------------------------------------------------------ 打包产物（vm）
@@ -206,7 +236,7 @@ function createFakeClient(options: { configForms?: boolean } = {}): FakeClient {
   const scope = {
     getSnapshot: () => ({
       status: 'ready',
-      value: { pageHosts: ['.ts.net'], disableBrowserAuth: false },
+      value: { pageHosts: ['.ts.net'], allowedUsers: ['alice@example.com'] },
       base: undefined,
       user: { pageHosts: ['.ts.net'] },
       writable: true,
@@ -320,7 +350,7 @@ test('产物：注入面给出快照钩子与四个表单动作，规格就是�
 
   assert.deepEqual(
     Array.from(FakeSettingsFormModel.constructed, (entry) => Array.from(entry.specs, (spec) => spec.field)),
-    [['pageHosts', 'disableBrowserAuth']],
+    [['pageHosts', 'allowedUsers']],
     '两个字段的换算规格都要交给官方表单模型',
   )
 })

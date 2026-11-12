@@ -1,6 +1,6 @@
 {
   "meta": {
     "title": "Tailnet Admin",
-    "description": "Keep the settings page usable when the GUI is opened over a Tailnet or reverse-proxy domain, and optionally skip the browser session check."
+    "description": "Keep the settings page usable when the GUI is opened over a Tailnet or reverse-proxy domain, and let only named Tailscale users skip the token check."
   }
 }

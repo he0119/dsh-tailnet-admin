@@ -11,10 +11,10 @@
 </div>
 
 Treat Tailnet / reverse-proxy pages as local: make DSH's settings pages work from a non-loopback origin, and
-optionally drop the browser session check (the Host/Origin fence stays).
+let only named Tailscale users in without a token (the Host/Origin fence stays).
 
-> ⚠️ This plugin touches an authentication boundary: **both switches default to off**, so installing it changes
-> nothing. Read [Security boundary](#security-boundary-read-this) before enabling the second one.
+> ⚠️ This plugin touches an authentication boundary: **both settings do nothing by default**, so installing it
+> changes nothing. Read [Security boundary](#security-boundary-read-this) before filling in `allowedUsers`.
 
 ## What it fixes
 
@@ -32,7 +32,13 @@ lives in the browser half; the server-side `--trusted-host` cannot influence it.
 browser-session check. The latter wants a cookie minted from `?token=`, bound to the request authority; the token
 is regenerated on each start, and the cookie stops matching as soon as the authority changes.
 
-The plugin splits those into two independent switches: `pageHosts` for ①, `disableBrowserAuth` for ②. Rationale and
+When traffic comes in through Tailscale, `tailscale serve` adds `Tailscale-User-Login` (the requester's login
+name, for example `alice@example.com`) to the request it forwards to DSH, and removes any incoming header of that
+name first so clients cannot forge it. The plugin can trust that header alone: listed users no longer need a
+token, requests carrying it from anyone else are refused, and requests without it (no tailscale serve, Funnel,
+tagged devices) fall back to the original cookie check.
+
+The plugin splits those into two independent settings: `pageHosts` for ①, `allowedUsers` for ②. Rationale and
 cost live in [.agents/notes/implemented/](.agents/notes/implemented) (Chinese).
 
 ## Install
@@ -75,17 +81,23 @@ enabling one edits exactly that array.
 Restart DSH afterwards (`systemctl --user restart dsh-web` for a systemd deployment). The startup log will show
 the `[dsh-tailnet-admin] …` lines when it is in place.
 
-### 3. Turn the switches on (the config page)
+### 3. Fill in the settings (the config page)
 
 **Settings → Plugins → `dsh-tailnet-admin`**: the form sits right below the description on this plugin's own
 bundle page.
 
 - **Page hosts treated as this machine**: one per line. A leading `.` means suffix match (`.ts.net` matches
   `a.ts.net`, not the bare `ts.net`), an exact hostname works too, and `*` matches everything.
-- **Skip the browser session check**: a switch, off by default; read "Security boundary" before turning it on.
+- **Tailscale users allowed in without a token**: one per line, the full Tailscale login name (for example
+  `alice@example.com`), case-insensitive. An empty box leaves the browser session check alone. Read
+  "Security boundary" before filling it in.
 
-Press **Save**. `disableBrowserAuth` takes effect immediately, `pageHosts` applies to the **next page load**
+Press **Save**. `allowedUsers` takes effect immediately, `pageHosts` applies to the **next page load**
 (refresh once); neither needs a DSH restart.
+
+The login name is your user account in the Tailscale admin console (usually an email), not a device or display
+name. When the plugin refuses someone it writes the real login name to the log
+(`[dsh-tailnet-admin] 拒绝了不在 allowedUsers 里的 Tailscale 用户：…`); copy that line.
 
 > The first host needs a detour: until `pageHosts` matches the current page host, the browser side does not treat
 > these settings as persistable (see "What it solves"), and the page says so ("this browser only"). So either open
@@ -99,28 +111,31 @@ Press **Save**. `disableBrowserAuth` takes effect immediately, `pageHosts` appli
   config:
     pageHosts:
       - .ts.net              # an exact hostname works too, as does `*`
-    disableBrowserAuth: true # default false; read "Security boundary" first
+    allowedUsers:
+      - alice@example.com   # your Tailscale login name; empty = leave authentication alone
 ```
 
-## Switches
+## Settings
 
-| Switch | Default | Effect |
+| Setting | Default | Effect |
 | --- | --- | --- |
 | `pageHosts` | `[]` | Which page hosts count as local. A leading `.` means suffix match; `*` matches everything |
-| `disableBrowserAuth` | `false` | Whether to drop the browser session check (token/cookie) |
+| `allowedUsers` | `[]` | Which Tailscale login names skip the browser session check. Empty = leave authentication alone |
 
 Both places edit the same config: **the plugin config page** (`Settings → Plugins → dsh-tailnet-admin`) saves
 into exactly the `config` block of that profile `cordis.patch.yml` row. Editing the file by hand and editing the
 page are equivalent — there is no precedence.
 
-- One rule per line; the page also accepts commas, so a line copied from this document needs no editing.
-- Rules that can never match (`*.ts.net`, a scheme or port, embedded spaces) are **blocked at save time** on the
-  page: the injected script only understands `*`, a dot-prefixed suffix, and an exact hostname; anything else
-  would sit there silently doing nothing.
-- Booleans accept only real booleans (YAML `true` / `false`). A string such as `'true'` makes the Loader **refuse
-  the entry** rather than becoming an "on" — a typo must not end up disabling authentication.
+- Both fields take one entry per line; the page also accepts commas, so a line copied from this document needs no
+  editing.
+- Entries that can never match are **blocked at save time** on the page: hosts only understand `*`, a
+  dot-prefixed suffix, and an exact hostname; login names are matched case-insensitively as a whole printable
+  ASCII string (no wildcards, commas, display names, spaces, or non-ASCII). Anything else would sit there silently
+  doing nothing, so it is better to stop the save.
+- An `allowedUsers` value that is not an array of strings (a single string, for example) makes the Loader
+  **refuse the entry** instead of guessing what it meant.
 
-A systemd deployment only owns the fence layer; the two switches are not environment variables (see the decision
+A systemd deployment only owns the fence layer; the two settings are not environment variables (see the decision
 record under [.agents/notes/implemented/](.agents/notes/implemented), in Chinese):
 
 ```ini
@@ -130,31 +145,47 @@ ExecStart=%h/.npm/_npx/<hash>/node_modules/.bin/dsh web --host 127.0.0.1 --port 
 ```
 
 > `--trusted-host` (or the connection plugin's `trustedHosts`) is a **separate** requirement: the `/api`
-> Host/Origin fence only accepts loopback or a declared authority. Turning on this plugin's switches without it
-> still ends in a 403 at the fence.
+> Host/Origin fence only accepts loopback or a declared authority. Filling in this plugin's `allowedUsers`
+> without it still ends in a 403 at the fence.
 >
 > `--public-url` (DSH `0.2.1-alpha.1` and later) is advertisement only: it changes the address DSH reports —
 > the printed and opened startup URL, `DSH_WEB_URL`, and the orientation handed to the model — and configures no
-> listener, routing, or cookie scope. It **grants no trust**, so it replaces none of this plugin's switches. What
+> listener, routing, or cookie scope. It **grants no trust**, so it replaces none of this plugin's settings. What
 > it buys you is that the `?token=` exchange mints its cookie for the authority your browser actually uses,
 > instead of you transplanting the token by hand.
 
 ## Security boundary (read this)
 
-`disableBrowserAuth: true` removes the "who may enter this UI" check. Once it is on:
+`allowedUsers` changes "who may enter this UI without a token". Once the list is non-empty:
 
-- **Anyone who can open the page** gains control of the machine — read and write files, run commands, use the API
-  keys you configured in DSH. Exposure follows your Tailscale ACLs / reverse-proxy access rules, **not the token**.
+- **A listed user** who opens the page gains control of the machine — read and write files, run commands, use the
+  API keys you configured in DSH. Keep the list short: only people who really need remote admin on this machine.
+- **Anyone else on the tailnet**: a request carrying `Tailscale-User-Login` is refused, even if the caller still
+  holds a cookie from earlier. Requests without that header (no tailscale serve, Funnel, tagged devices) fall
+  back to the original token check; the plugin never treats a header-less request as authenticated.
+- **DSH must listen on loopback only.** The whole decision rests on "`Tailscale-User-Login` was added by
+  tailscale serve". [Tailscale's own docs require the backend to listen on localhost](https://tailscale.com/docs/features/tailscale-serve#identity-headers); otherwise anyone who can
+  reach the port directly can write that header themselves. `dsh web` listens on `127.0.0.1` by default — do not
+  change `--host` to `0.0.0.0` or a Tailnet IP. The Host/Origin fence stops forged Host headers and cross-site
+  requests; it does **not** stop someone who can connect to the port.
+- **Tagged devices and Funnel carry no identity headers**: those requests fall back to the token check, so this
+  list cannot help them.
+- **Shared nodes**: after you share a device, the other person's requests carry **their own** login name; unless
+  it is listed, they stay out.
 - What remains is the **Host/Origin fence**: loopback or a declared authority, plus a rejection of
   `Sec-Fetch-Site: cross-site`. It stops DNS rebinding and cross-site requests; it does **not** stop someone who
   simply knows the address.
 - `pageHosts`, by contrast, only affects **browser-side** settings persistence and UI availability. It changes no
   server-side decision.
 
-Suggested posture: enable `pageHosts` as needed, enable `disableBrowserAuth` only when the token really keeps
-interrupting you, and double-check that your Tailscale ACLs only admit your own devices. To revert, turn the
-switches off on the config page (or edit those two lines in `cordis.patch.yml` back): `disableBrowserAuth` recovers
-immediately, `pageHosts` on the next page load, and there is no state to clean up.
+Suggested posture: enable `pageHosts` as needed; put only your own login name in `allowedUsers`, never "everyone
+on the tailnet". To revert, clear the list on the config page (or remove `allowedUsers` from
+`cordis.patch.yml`): the token check returns immediately, `pageHosts` on the next page load, and there is no
+state to clean up.
+
+> Upgrading from the old version: `disableBrowserAuth: true` is no longer in the schema, so the Loader silently
+> ignores it — the effect is the original authentication coming back. Replace it with an `allowedUsers` list, or
+> the page will start asking for a token again.
 
 ## Troubleshooting
 
@@ -162,7 +193,8 @@ immediately, `pageHosts` on the next page load, and there is no state to clean u
 | --- | --- |
 | Still `settings are unavailable in this browser` | `pageHosts` does not match the current page host (suffix rules need the dot: `.ts.net`), or the page was not refreshed |
 | Requests fail with 403 | The Host/Origin fence rejected them: add `--trusted-host <authority>` to `dsh web` |
-| Still asked for `?token=` | `disableBrowserAuth` is off (the switch on the config page is not on) |
+| Still asked for `?token=` | `allowedUsers` is empty; the current user's login name is not listed; or the request did not come through tailscale serve (tagged device, Funnel, direct connection), so there is no `Tailscale-User-Login` |
+| A listed user is refused too | The login name is wrong (a display name or device name), or the request did not come through tailscale serve; the log line "拒绝了不在 allowedUsers 里的 Tailscale 用户：…" shows the real login name |
 | No `[dsh-tailnet-admin]` line in the startup log | The name is missing from `dsh.profile.bundles`, or the package is not installed (check with `dsh --profile web --dump-config \| grep tailnet-admin`) |
 | The config page says "this browser only" and the profile does not change | The current page is not treated as this machine: open DSH over loopback once, or edit `cordis.patch.yml` directly |
 | The config page says the section cannot be read | The `id` of that `cordis.patch.yml` row is not `tailnet-admin`, or the row is not enabled |
