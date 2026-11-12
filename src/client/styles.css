@@ -4,7 +4,9 @@
    颜色只引用 dsh web 定义过的主题 token（`--dsw-alias-*`）并各带回退值，深浅色自动跟随。 */
 
 /* 配置区与上面的插件介绍之间的分隔：一个和官方 section 标题同字号的标题，下面一条发丝线。
-   官方页的其它 section（版本、来源）都有标题，配置区原本没有，所以看起来和介绍连在一起。 */
+   官方页的其它 section（版本、来源）都有标题，配置区原本没有，所以看起来和介绍连在一起。
+   字重比官方 section 的 500 重一档（600）：字段标签也是 500，同字重时标题只靠 1px 字号差，
+   和标签分不开。 */
 [data-dsh-tailnet-admin] .dta-section-head {
   display: flex;
   align-items: baseline;
@@ -17,7 +19,7 @@
 [data-dsh-tailnet-admin] .dta-section-title {
   margin: 0;
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 600;
   line-height: 20px;
   color: var(--dsw-alias-label-primary, #e6e6e6);
 }
