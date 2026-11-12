@@ -15,9 +15,22 @@ on:
         description: 要发布的标签（vX.Y.Z）
         type: string
         required: true
+  # 手动补发/重试入口：在 main 上触发时用 tag 指定要发的标签。
+  # 这样 OIDC 的工作流文件就是 publish.yml，不经过 release.yml 的 workflow_call。
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 要发布的标签（vX.Y.Z）
+        type: string
+        required: true
 
 permissions:
   contents: read
+
+# 同一时刻只允许一次发布在跑：两次并发会让 npm 的 latest 被后发的那次拽回旧版本。
+concurrency:
+  group: npm-release
+  cancel-in-progress: false
 
 jobs:
   # 发布前先跑一遍完整检查：标签打错 commit 时挡在 npm 之外。
