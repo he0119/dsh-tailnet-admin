@@ -2,21 +2,18 @@ name: Publish
 
 # 把某个标签指向的提交发到 npm（可信发布），成功后自动建 GitHub Release —— 见 docs/releasing.md。
 #
-# 两条入口，都通向「同一个提交上的同一个标签」：
-#   - release.yml：人工在 Actions 里点 Release 按钮，它把标签打在当刻 main 顶端，再以 workflow_call
-#     调进来。用 GITHUB_TOKEN 推的标签不会再触发别的 workflow，所以只能显式调用。
-#   - 直接推一个 v* 标签：手动补发与善后走这条。
+# 三条入口，都通向「同一个提交上的同一个标签」：
+#   - release.yml：人工点 Release 按钮，它打标签后用 workflow_dispatch 触发本工作流；
+#   - 直接推一个 v* 标签：手动补发与善后走这条；
+#   - 在 main 上手动 workflow_dispatch，用 tag 指定要发的标签（补发/重试）。
+#
+# 不走 workflow_call：npm 的可信发布按实际执行 npm publish 的工作流文件校验，复用工作流会让它
+# 看到的文件名和 npm 上登记的 publish.yml 对不上，发布会被 404 拒掉。
 on:
   push:
     tags: ['v*']
-  workflow_call:
-    inputs:
-      tag:
-        description: 要发布的标签（vX.Y.Z）
-        type: string
-        required: true
   # 手动补发/重试入口：在 main 上触发时用 tag 指定要发的标签。
-  # 这样 OIDC 的工作流文件就是 publish.yml，不经过 release.yml 的 workflow_call。
+  # 这样 OIDC 的工作流文件就是 publish.yml，不经过 release.yml。
   workflow_dispatch:
     inputs:
       tag:

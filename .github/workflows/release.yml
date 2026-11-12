@@ -2,6 +2,7 @@ name: Release
 
 # 人工点一次按钮才开始发布：合并版本号 PR 不等于发布，main 上的版本号只表示「下一版是这个号」。
 #
+# Release 只负责打标签，然后触发 Publish 工作流；真正的 npm 发布与 GitHub Release 都在 Publish 里。
 # 版本号**不来自入参**——它仍只从 main 上的 package.json 读；入参是发布者对自己要发什么的断言，
 # 对不上就什么都不做。标签在这一步由 CI 打在它刚检出的那个提交上，所以「版本提交」与「标签」
 # 按构造是同一个 SHA，不存在哪一步打晚了。见 docs/releasing.md。
@@ -88,9 +89,15 @@ jobs:
 
   publish:
     needs: tag
-    uses: ./.github/workflows/publish.yml
-    with:
-      tag: ${{ needs.tag.outputs.tag }}
+    runs-on: ubuntu-latest
     permissions:
-      contents: write   # 建 GitHub Release
-      id-token: write   # npm 可信发布与 provenance 都要 OIDC
+      # 触发 Publish 工作流需要 actions: write；gh 读仓库元数据要 contents: read。
+      # 发布本身由 Publish 的 GITHUB_TOKEN 完成。
+      actions: write
+      contents: read
+    steps:
+      - name: 触发 Publish 工作流
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.tag.outputs.tag }}
+        run: gh workflow run publish.yml --ref main -f tag="$TAG"

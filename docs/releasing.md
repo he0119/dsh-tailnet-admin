@@ -65,7 +65,7 @@ git push -u origin chore/release-0.2.0
 gh pr create --title "chore(release): 0.2.0" --body "…"   # 等 check 绿了再合
 #    合并之后 main 上就是 0.2.0，npm 上还没有 —— 这中间想合多少别的 PR 都行
 
-# 2) 想发的时候点按钮
+# 2) 想发的时候点按钮（Release 只打标签并触发 Publish）
 gh workflow run release.yml --ref main -f version=0.2.0
 
 npm view @he0119/dsh-tailnet-admin version   # 工作流绿了再确认线上版本（见「工作流绿了但查不到」）
@@ -76,8 +76,11 @@ npm view @he0119/dsh-tailnet-admin version   # 工作流绿了再确认线上版
 两次。
 
 标签由工作流在**当刻 `main` 顶端**打好再推 —— 标签与版本提交因此按构造是同一个 SHA，不需要人去挑提交。
-用 `GITHUB_TOKEN` 推的标签不会再触发别的 workflow，所以 Release 工作流会显式以 `workflow_call` 调
-Publish。
+用 `GITHUB_TOKEN` 推的标签不会再触发别的 workflow，所以 Release 工作流会用 `workflow_dispatch` 触发
+Publish；真正的 npm 发布与 GitHub Release 都在 Publish 那次运行里。
+
+不要改成 `workflow_call`：npm 的可信发布按实际执行 `npm publish` 的工作流文件校验，复用工作流会让它
+看到的文件名和 npm 上登记的 `publish.yml` 对不上，发布会被 404 拒掉。
 
 ## Publish 的三道硬校验
 
@@ -97,6 +100,12 @@ Publish。
 ```sh
 git tag -a v0.2.0 -m "chore(release): 0.2.0" origin/main
 git push origin v0.2.0
+```
+
+也可以在 `main` 上直接触发 Publish，用 `tag` 指定要发的标签：
+
+```sh
+gh workflow run publish.yml --ref main -f tag=v0.2.0
 ```
 
 ## 工作流绿了但 `npm view` 查不到
