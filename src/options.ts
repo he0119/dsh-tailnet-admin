@@ -1,6 +1,6 @@
 import type { Volatile } from '@deepseek-ai/cordis'
 
-import type { PluginConfig, ResolvedOptions } from './config.ts'
+import { DEFAULT_PAGE_HOSTS, type PluginConfig, type ResolvedOptions } from './config.ts'
 
 /**
  * 读一个 volatile 配置引用。
@@ -15,10 +15,16 @@ export function readVolatile<T>(field: Volatile<T> | undefined): T | undefined {
   return typeof candidate?.get === 'function' ? candidate.get() : undefined
 }
 
-/** 规整规则表：去空白、转小写、丢掉空项与重复项（顺序保留）。 */
+/**
+ * 规整规则表：去空白、转小写、丢掉空项与重复项（顺序保留）。
+ *
+ * `undefined` 与空表的含义不同：字段缺席用默认的 `.ts.net`，显式空表就是"一行都不注入"
+ * （用户在配置页里清空并保存走的是后者）。
+ */
 export function normalizePageHosts(patterns: readonly string[] | undefined): string[] {
+  if (patterns === undefined) return [...DEFAULT_PAGE_HOSTS]
   const rules: string[] = []
-  for (const raw of patterns ?? []) {
+  for (const raw of patterns) {
     const rule = String(raw).trim().toLowerCase()
     if (rule !== '' && !rules.includes(rule)) rules.push(rule)
   }

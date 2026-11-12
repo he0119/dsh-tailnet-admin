@@ -67,12 +67,13 @@ test('规则表草稿：按行与逗号切，去空白、丢空项', () => {
   assert.deepEqual(splitPageHostsDraft('   '), [])
 })
 
-test('规则表字段：值↔文本的换算，空文本 = 从用户层去掉这一项', () => {
+test('规则表字段：值↔文本的换算，空文本 = 显式不注入', () => {
   const field = pageHostsField('pageHosts')
   assert.equal(field.format(['.ts.net', 'dsh.example.com']), '.ts.net\ndsh.example.com')
+  assert.equal(field.format([]), '')
   assert.equal(field.format(undefined), '')
   assert.deepEqual(field.parse('.ts.net\n\nmy.lan'), { kind: 'set', value: ['.ts.net', 'my.lan'] })
-  assert.deepEqual(field.parse('  '), { kind: 'clear' })
+  assert.deepEqual(field.parse('  '), { kind: 'set', value: [] })
   assert.equal(field.parse('*.ts.net'), undefined, '命不中的写法不产生写入：官方表单据此挡住保存')
   assert.equal(field.parse('.ts.net\n*.ts.net'), undefined, '只要有一条命不中，整次保存就不该发生')
 })

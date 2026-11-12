@@ -26,3 +26,7 @@ Status: implemented
   [2026-10-09-config-page-is-the-only-source.md](2026-10-09-config-page-is-the-only-source.md) 里整条删掉，
   "typo 被宽容解析成一项"这类风险从此由 schema 层挡（名单不是字符串数组直接拒绝加载，见根
   [AGENTS.md](../../../../AGENTS.md) 硬约束第 3 条）。
+
+> 后续：本记录里「`pageHosts` 默认空表」的那一半已被
+> [pageHosts 默认 .ts.net](2026-11-12-page-hosts-default-ts-net.md) 取代；`allowedUsers` 默认空表、
+> 认证边界默认关闭的结论不变。

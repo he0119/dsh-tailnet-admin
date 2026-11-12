@@ -28,9 +28,9 @@
 
 改动不得越过这几条；越过之前先在这里说清楚理由：
 
-1. **两项配置默认都不做事。** `pageHosts` 默认空表（不注入），`allowedUsers` 默认空表（不碰认证）。
-   这是一个动认证边界的插件，"装了就生效"不是合适的默认值。空名单是"不做事"，不是"拒绝所有人"——
-   别把一个手滑变成全员被挡。
+1. **认证边界默认不做事。** `allowedUsers` 默认空表（不碰认证）；`pageHosts` 默认 `['.ts.net']`
+   （Tailnet 的 MagicDNS 后缀，只影响浏览器端的设置持久化）。空名单是"不做事"，不是"拒绝所有人"——
+   别把一个手滑变成全员被挡；要关掉页面注入，就把 `pageHosts` 显式设成空表。
 2. **不动 Host/Origin 栅栏。** 认证那层（`browserAuth.isAuthenticated`，存在时还有 `authenticateApi`）
    可以按名单替换；栅栏那层（`isTrustedApiRequest` / `trustedHosts`）不许碰，也不许在文档里暗示它可以放宽。
 3. **名单只做精确匹配。** `allowedUsers` 在 schema 层是 `z.array(String)`，判断是「转小写后整串相等」；

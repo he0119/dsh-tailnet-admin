@@ -13,8 +13,9 @@
 Treat Tailnet / reverse-proxy pages as local: make DSH's settings pages work from a non-loopback origin, and
 let only named Tailscale users in without a token (the Host/Origin fence stays).
 
-> ⚠️ This plugin touches an authentication boundary: **both settings do nothing by default**, so installing it
-> changes nothing. Read [Security boundary](#security-boundary-read-this) before filling in `allowedUsers`.
+> ⚠️ This plugin touches an authentication boundary: **the authentication setting does nothing by default**, so
+> installing it never widens access; `pageHosts` defaults to `.ts.net` and only affects browser-side settings
+> persistence. Read [Security boundary](#security-boundary-read-this) before filling in `allowedUsers`.
 
 ## What it fixes
 
@@ -38,8 +39,9 @@ name first so clients cannot forge it. The plugin can trust that header alone: l
 token, requests carrying it from anyone else are refused, and requests without it (no tailscale serve, Funnel,
 tagged devices) fall back to the original cookie check.
 
-The plugin splits those into two independent settings: `pageHosts` for ①, `allowedUsers` for ②. Rationale and
-cost live in [.agents/notes/implemented/](.agents/notes/implemented) (Chinese).
+The plugin splits those into two independent settings: `pageHosts` for ① (defaults to `.ts.net`) and
+`allowedUsers` for ② (defaults to empty). Rationale and cost live in
+[.agents/notes/implemented/](.agents/notes/implemented) (Chinese).
 
 ## Install
 
@@ -86,9 +88,11 @@ the `[dsh-tailnet-admin] …` lines when it is in place.
 **Settings → Plugins → `dsh-tailnet-admin`**: the form sits right below the description on this plugin's own
 bundle page.
 
-- **Page hosts treated as this machine**: one per line. A leading `.` means suffix match (`.ts.net` matches
-  `a.ts.net`, not the bare `ts.net`), an exact hostname works too, and `*` matches everything.
-- **Tailscale users allowed in without a token**: one per line, the full Tailscale login name (for example
+- **Domains where settings work**: one per line; the default is `.ts.net` (the Tailnet MagicDNS suffix).
+  A leading `.` means suffix match (`.ts.net` matches `a.ts.net`, not the bare `ts.net`); an exact hostname and
+  `*` work too. Put a custom domain or reverse-proxy host here. Saving an empty box means no injection;
+  **Reset** returns to `.ts.net`.
+- **Tailscale users without a token**: one per line, the full Tailscale login name (for example
   `alice@example.com`), case-insensitive. An empty box leaves the browser session check alone. Read
   "Security boundary" before filling it in.
 
@@ -99,10 +103,10 @@ The login name is your user account in the Tailscale admin console (usually an e
 name. When the plugin refuses someone it writes the real login name to the log
 (`[dsh-tailnet-admin] 拒绝了不在 allowedUsers 里的 Tailscale 用户：…`); copy that line.
 
-> The first host needs a detour: until `pageHosts` matches the current page host, the browser side does not treat
-> these settings as persistable (see "What it solves"), and the page says so ("this browser only"). So either open
-> DSH **over a loopback address** (`http://localhost:3080`) once and fill it in there, or write the profile's
-> `cordis.patch.yml` directly:
+> The default `.ts.net` already covers common Tailnet domains, so a page opened from `*.ts.net` can save these
+> settings on the first visit — no loopback detour. Only when the page host is not under `.ts.net` (a custom
+> domain or reverse proxy) do you need to open DSH **over a loopback address** (`http://localhost:3080`) once,
+> or write the profile's `cordis.patch.yml` directly:
 
 ```yaml
 # ~/.dsh/profiles/web/cordis.patch.yml
@@ -110,16 +114,16 @@ name. When the plugin refuses someone it writes the real login name to the log
   name: '@he0119/dsh-tailnet-admin'
   config:
     pageHosts:
-      - .ts.net              # an exact hostname works too, as does `*`
+      - dsh.example.com      # omit this setting for the default .ts.net; custom domains/reverse proxies only
     allowedUsers:
-      - alice@example.com   # your Tailscale login name; empty = leave authentication alone
+      - alice@example.com    # your Tailscale login name; empty = leave authentication alone
 ```
 
 ## Settings
 
 | Setting | Default | Effect |
 | --- | --- | --- |
-| `pageHosts` | `[]` | Which page hosts count as local. A leading `.` means suffix match; `*` matches everything |
+| `pageHosts` | `['.ts.net']` | Which page hosts count as local. A leading `.` means suffix match; `*` matches everything; an explicit empty array injects nothing |
 | `allowedUsers` | `[]` | Which Tailscale login names skip the browser session check. Empty = leave authentication alone |
 
 Both places edit the same config: **the plugin config page** (`Settings → Plugins → dsh-tailnet-admin`) saves
@@ -128,6 +132,8 @@ page are equivalent — there is no precedence.
 
 - Both fields take one entry per line; the page also accepts commas, so a line copied from this document needs no
   editing.
+- Omitting `pageHosts` uses the default `.ts.net`; saving an empty box writes an **explicit empty array** (inject
+  nothing), not "fall back to the default".
 - Entries that can never match are **blocked at save time** on the page: hosts only understand `*`, a
   dot-prefixed suffix, and an exact hostname; login names are matched case-insensitively as a whole printable
   ASCII string (no wildcards, commas, display names, spaces, or non-ASCII). Anything else would sit there silently
@@ -176,22 +182,26 @@ ExecStart=%h/.npm/_npx/<hash>/node_modules/.bin/dsh web --host 127.0.0.1 --port 
   `Sec-Fetch-Site: cross-site`. It stops DNS rebinding and cross-site requests; it does **not** stop someone who
   simply knows the address.
 - `pageHosts`, by contrast, only affects **browser-side** settings persistence and UI availability. It changes no
-  server-side decision.
+  server-side decision. The `.ts.net` default follows from the plugin's scope, not from an authentication choice;
+  clear the list on the config page if you want no injection at all.
 
-Suggested posture: enable `pageHosts` as needed; put only your own login name in `allowedUsers`, never "everyone
-on the tailnet". To revert, clear the list on the config page (or remove `allowedUsers` from
-`cordis.patch.yml`): the token check returns immediately, `pageHosts` on the next page load, and there is no
-state to clean up.
+Suggested posture: leave `pageHosts` at `.ts.net` and add a custom domain only when needed; put only your own
+login name in `allowedUsers`, never "everyone on the tailnet". To revert authentication, clear the list on the
+config page (or remove `allowedUsers` from `cordis.patch.yml`): the token check returns immediately. To stop
+page injection as well, clear the page hosts and save (an explicit empty array); it applies on the next page
+load. There is no state to clean up.
 
 > Upgrading from the old version: `disableBrowserAuth: true` is no longer in the schema, so the Loader silently
 > ignores it — the effect is the original authentication coming back. Replace it with an `allowedUsers` list, or
-> the page will start asking for a token again.
+> the page will start asking for a token again. Also, an omitted `pageHosts` now defaults to `.ts.net` (it used to
+> be empty); configs that already set a value, including `[]`, keep it.
 
 ## Troubleshooting
 
 | Symptom | Cause |
 | --- | --- |
-| Still `settings are unavailable in this browser` | `pageHosts` does not match the current page host (suffix rules need the dot: `.ts.net`), or the page was not refreshed |
+| Still `settings are unavailable in this browser` | The current page host does not match `pageHosts` (the default only covers `.ts.net`; add custom domains/reverse proxies), or the page was not refreshed |
+| Do not want injection on any page | Clear the page hosts on the config page and save (an explicit empty array); deleting the setting falls back to `.ts.net` |
 | Requests fail with 403 | The Host/Origin fence rejected them: add `--trusted-host <authority>` to `dsh web` |
 | Still asked for `?token=` | `allowedUsers` is empty; the current user's login name is not listed; or the request did not come through tailscale serve (tagged device, Funnel, direct connection), so there is no `Tailscale-User-Login` |
 | A listed user is refused too | The login name is wrong (a display name or device name), or the request did not come through tailscale serve; the log line "拒绝了不在 allowedUsers 里的 Tailscale 用户：…" shows the real login name |

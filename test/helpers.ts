@@ -116,10 +116,10 @@ export interface FakeConfig {
   allowedUsers: FakeRef<string[]>
 }
 
-/** 造一份假配置（缺省都是"不做事"）。 */
+/** 造一份假配置（pageHosts 用默认 .ts.net，认证名单默认空表）。 */
 export function createConfig(initial: { pageHosts?: string[]; allowedUsers?: string[] } = {}): FakeConfig {
   return {
-    pageHosts: volatileRef(initial.pageHosts ?? []),
+    pageHosts: volatileRef(initial.pageHosts ?? ['.ts.net']),
     allowedUsers: volatileRef(initial.allowedUsers ?? []),
   }
 }

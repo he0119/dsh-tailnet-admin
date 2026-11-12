@@ -1,7 +1,7 @@
 /**
  * dsh-tailnet-admin —— 把 Tailnet / 反向代理页面当作「本机」来用。
  *
- * 两件事各自独立，默认都不做：
+ * 两件事各自独立：`pageHosts` 默认 `.ts.net`，`allowedUsers` 默认空表（不碰认证）。
  *
  * ① `pageHosts`：往启动 HTML 的 `<head>` 注入一行脚本，把命中的页面标记成
  *    `globalThis.__DSH_TRANSPORT__ = { ownsHost: true }`。客户端的 `isLoopback` 只看这个标志位或
@@ -15,7 +15,7 @@
  *
  * 为什么②默认关闭：这一改，名单里的人打开页面就等于拿到了这台机器的控制权。而且这份名单只有在请求
  * 确实经过 tailscale serve、DSH 只监听回环地址时才可靠。理由与代价写在 docs/internals.md 的决策地图里，
- * 别在这里重复。
+ * 别在这里重复。① 默认非空只是因为它的影响面在浏览器端，且插件本身就是为 Tailnet 页面准备的。
  *
  * 两个字段都是 volatile（见 config.ts）：配置从侧边栏「插件」页的配置表单或 profile 的
  * `cordis.patch.yml` 来；Loader 提交新值后**只发一次 `loader/volatile-update`、不重挂插件**，因此
@@ -59,7 +59,7 @@ function listText(items: readonly string[]): string {
 function installPageScript(ctx: HostContext, config: PluginConfig | undefined): void {
   const initial = resolveOptions(config).pageHosts
   log(initial.length === 0
-    ? 'pageHosts 为空：不注入页面脚本（非回环页面仍会报 settings are unavailable in this browser）'
+    ? 'pageHosts 是显式空表：不注入页面脚本（非回环页面仍会报 settings are unavailable in this browser）'
     : `已注册页面脚本，命中主机：${listText(initial)}`)
   ctx.on('webserver/index-inject', (table) => {
     const script = buildPageScript(resolveOptions(config).pageHosts)

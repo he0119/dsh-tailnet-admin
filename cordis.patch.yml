@@ -9,10 +9,10 @@
 # 本地开发：
 #   dsh plugin --profile web add link:<本目录绝对路径>
 #
-# 两项配置默认都是「什么都不做」。它们只有一个来源：下面注释里的 `config:` 那一段，或者等价地，
-# 侧边栏「设置 → 插件 → dsh-tailnet-admin」那张包页上的配置表单（页面保存时写的就是这一段）。
-# 环境变量那条路已经删掉，systemd unit 里的 DSH_TAILNET_ADMIN_* 不再有任何作用。
-#   pageHosts     哪些页面主机按「本机」处理（`.` 开头 = 后缀匹配，`*` = 全部）
+# 认证那一项默认不做事；页面主机默认 .ts.net（只影响浏览器端）。它们只有一个来源：下面注释里的
+# `config:` 那一段，或者等价地，侧边栏「设置 → 插件 → dsh-tailnet-admin」那张包页上的配置表单
+# （页面保存时写的就是这一段）。环境变量那条路已经删掉，systemd unit 里的 DSH_TAILNET_ADMIN_* 不再有任何作用。
+#   pageHosts     哪些页面主机按「本机」处理（默认 `.ts.net`；`.` 开头 = 后缀匹配，`*` = 全部；显式空表 = 不注入）
 #   allowedUsers  哪些 Tailscale 登录名可以免掉浏览器会话校验（空表 = 不碰认证）
 # 这个 id 必须保持 tailnet-admin：配置页按 entry id 取这一段设置。
 # ============================================================================
@@ -23,6 +23,6 @@
       name: '@he0119/dsh-tailnet-admin'
       # config:
       #   pageHosts:
-      #     - .ts.net
+      #     - dsh.example.com   # 不写这一项 = 默认 .ts.net；自定义域名/反代才需要加
       #   allowedUsers:
       #     - alice@example.com

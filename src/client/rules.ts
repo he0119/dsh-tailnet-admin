@@ -55,7 +55,7 @@ export function isUsableAllowedUser(user: string): boolean {
  * 把草稿文本切成规则表。
  *
  * 按行切，同时也认逗号——README 与 `--patch` 的示例里都是逗号分隔，从那儿抄一行过来不该被当成一条
- * 命不中的规则。空白与空项丢掉；一条都不剩时给空数组（= 这一项不写，见 {@link pageHostsField}）。
+ * 命不中的规则。空白与空项丢掉；一条都不剩时给空数组（= 显式不注入，见 {@link pageHostsField}）。
  * @param text - 草稿文本。
  * @returns 规整到"没有空项"的规则表。
  */
@@ -84,9 +84,9 @@ export function splitAllowedUsersDraft(text: string): string[] {
  * 规则表字段的换算规格。
  *
  * - 值 → 文本：一行一条。
- * - 文本 → 写入：全是能命中的规则就整表写进用户层；一条都不剩就 `clear`，也就是把这一项从用户层去掉、
- *   回落到组合层与 schema 默认（默认是空表 = 不注入）；只要有一条命不中就给 `undefined`，官方表单据此
- *   判 invalid 并挡住保存。
+ * - 文本 → 写入：全是能命中的规则就整表写进用户层；一条都不剩就写一个**显式空表**（= 不注入）——
+ *   注意这与"把这一项从用户层去掉"不同，后者会回落到 schema 默认的 `.ts.net`；只要有一条命不中就给
+ *   `undefined`，官方表单据此判 invalid 并挡住保存。
  * @param field - 命名空间里的字段名。
  * @returns 该字段的换算规格。
  */
@@ -96,7 +96,7 @@ export function pageHostsField(field: string): SettingsFieldSpec {
     format: (value) => (Array.isArray(value) ? value.map((item) => String(item)).join('\n') : ''),
     parse: (text) => {
       const rules = splitPageHostsDraft(text)
-      if (rules.length === 0) return { kind: 'clear' }
+      if (rules.length === 0) return { kind: 'set', value: [] }
       return rules.every(isUsablePageHost) ? { kind: 'set', value: rules } : undefined
     },
   }
