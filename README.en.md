@@ -88,11 +88,11 @@ the `[dsh-tailnet-admin] …` lines when it is in place.
 **Settings → Plugins → `dsh-tailnet-admin`**: the form sits right below the description on this plugin's own
 bundle page.
 
-- **Page hosts treated as this machine**: one per line; the default is `.ts.net` (the Tailnet MagicDNS suffix).
+- **Domains where settings work**: one per line; the default is `.ts.net` (the Tailnet MagicDNS suffix).
   A leading `.` means suffix match (`.ts.net` matches `a.ts.net`, not the bare `ts.net`); an exact hostname and
   `*` work too. Put a custom domain or reverse-proxy host here. Saving an empty box means no injection;
   **Reset** returns to `.ts.net`.
-- **Tailscale users allowed in without a token**: one per line, the full Tailscale login name (for example
+- **Tailscale users without a token**: one per line, the full Tailscale login name (for example
   `alice@example.com`), case-insensitive. An empty box leaves the browser session check alone. Read
   "Security boundary" before filling it in.
 

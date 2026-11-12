@@ -80,10 +80,10 @@ npx @deepseek-ai/dsh plugin --profile web add link:/path/to/dsh-tailnet-admin
 
 **设置 → 插件 → `dsh-tailnet-admin`**：本插件那张包页的描述下面就是配置表单，两项配置都在那儿。
 
-- **按「本机」处理的页面主机**：一行一条，默认 `.ts.net`（Tailnet 的 MagicDNS 后缀）。`.` 开头 =
+- **设置页可用的域名**：一行一条，默认 `.ts.net`（Tailnet 的 MagicDNS 后缀）。`.` 开头 =
   后缀匹配（`.ts.net` 命中 `a.ts.net`，不命中裸 `ts.net`），也可以写精确主机名或 `*`；自定义域名/反代
   把这里改成你的域名。清空并保存 = 显式不注入（点「恢复默认」回到 `.ts.net`）。
-- **允许免 token 进入的 Tailscale 用户**：一行一条，写完整的 Tailscale 登录名（例如
+- **不用 token 的 Tailscale 用户**：一行一条，写完整的 Tailscale 登录名（例如
   `alice@example.com`），不区分大小写。留空 = 不碰浏览器会话校验。填之前先读[安全边界](#安全边界必读)。
 
 改完点**保存**。`allowedUsers` 立刻生效，`pageHosts` 在**下一次打开页面**时生效（刷新一次即可），
