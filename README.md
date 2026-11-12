@@ -13,8 +13,8 @@
 把 Tailnet / 反向代理页面当作「本机」来用：让 DSH 的设置页在非回环地址上可用，并按 Tailscale 身份
 只放行指定用户（Host/Origin 栅栏保持不动）。
 
-> ⚠️ 这个插件会动到认证边界：**两项配置默认都不做事**，装上去不改变任何行为。填 `allowedUsers` 之前，
-> 请先读[安全边界](#安全边界必读)。
+> ⚠️ 这个插件会动到认证边界：**认证那一项默认不做事**，装上去不会放宽任何访问；页面主机默认 `.ts.net`，
+> 只影响浏览器端的设置持久化。填 `allowedUsers` 之前，请先读[安全边界](#安全边界必读)。
 
 ## 它解决什么
 
@@ -34,8 +34,8 @@
 名单里的用户不再需要 token；名单外但带着这个头的请求直接拒绝；没带这个头的访问（没经过 tailscale serve、
 Funnel、tagged device）回落到原来的 cookie 校验。
 
-插件把这两件事拆成两项独立配置：`pageHosts` 解决 ①，`allowedUsers` 解决 ②。为什么这么默认、
-代价是什么，见 [.agents/notes/implemented/](.agents/notes/implemented)（中文）。
+插件把这两件事拆成两项独立配置：`pageHosts` 解决 ①（默认 `.ts.net`），`allowedUsers` 解决 ②（默认空表）。
+为什么这么默认、代价是什么，见 [.agents/notes/implemented/](.agents/notes/implemented)（中文）。
 
 ## 安装
 
@@ -80,8 +80,9 @@ npx @deepseek-ai/dsh plugin --profile web add link:/path/to/dsh-tailnet-admin
 
 **设置 → 插件 → `dsh-tailnet-admin`**：本插件那张包页的描述下面就是配置表单，两项配置都在那儿。
 
-- **按「本机」处理的页面主机**：一行一条。`.` 开头 = 后缀匹配（`.ts.net` 命中 `a.ts.net`，不命中裸
-  `ts.net`），也可以写精确主机名，或写 `*` 命中全部。
+- **按「本机」处理的页面主机**：一行一条，默认 `.ts.net`（Tailnet 的 MagicDNS 后缀）。`.` 开头 =
+  后缀匹配（`.ts.net` 命中 `a.ts.net`，不命中裸 `ts.net`），也可以写精确主机名或 `*`；自定义域名/反代
+  把这里改成你的域名。清空并保存 = 显式不注入（点「恢复默认」回到 `.ts.net`）。
 - **允许免 token 进入的 Tailscale 用户**：一行一条，写完整的 Tailscale 登录名（例如
   `alice@example.com`），不区分大小写。留空 = 不碰浏览器会话校验。填之前先读[安全边界](#安全边界必读)。
 
@@ -92,9 +93,9 @@ npx @deepseek-ai/dsh plugin --profile web add link:/path/to/dsh-tailnet-admin
 真实登录名打进日志（`[dsh-tailnet-admin] 拒绝了不在 allowedUsers 里的 Tailscale 用户：…`），照着那一行
 填即可。
 
-> 第一次要绕个弯：`pageHosts` 还没命中当前页面的主机名时，浏览器端不把这些设置当作可持久化（原因见
-> [它解决什么](#它解决什么)），配置页会明说「只写进这个浏览器」。所以第一个主机要么**从回环地址打开
-> DSH**（`http://localhost:3080` 这种）在配置页里填，要么直接写 profile 的 `cordis.patch.yml`：
+> 默认 `.ts.net` 已经覆盖了常见的 Tailnet 域名，所以从 `*.ts.net` 打开时配置页第一次就能正常保存，
+> 不必再绕回环地址。只有当你访问的主机不匹配 `.ts.net`（自定义域名或反向代理）时，才需要先从回环地址
+> 打开一次（`http://localhost:3080`），或者直接写 profile 的 `cordis.patch.yml`：
 
 ```yaml
 # ~/.dsh/profiles/web/cordis.patch.yml
@@ -102,22 +103,23 @@ npx @deepseek-ai/dsh plugin --profile web add link:/path/to/dsh-tailnet-admin
   name: '@he0119/dsh-tailnet-admin'
   config:
     pageHosts:
-      - .ts.net              # 也可以写精确主机名，或 `*`
+      - dsh.example.com      # 不写这一项 = 默认 .ts.net；自定义域名/反代才需要加
     allowedUsers:
-      - alice@example.com   # 你在 Tailscale 里的登录名；留空 = 不碰认证
+      - alice@example.com    # 你在 Tailscale 里的登录名；留空 = 不碰认证
 ```
 
 ## 配置
 
 | 配置 | 默认 | 作用 |
 | --- | --- | --- |
-| `pageHosts` | `[]` | 哪些页面主机按「本机」处理。`.` 开头 = 后缀匹配；`*` = 全部 |
+| `pageHosts` | `['.ts.net']` | 哪些页面主机按「本机」处理。`.` 开头 = 后缀匹配；`*` = 全部；显式空表 = 不注入 |
 | `allowedUsers` | `[]` | 哪些 Tailscale 登录名可以免掉浏览器会话校验。空表 = 不碰认证 |
 
 两处写的是同一份配置：**插件配置页**（`设置 → 插件 → dsh-tailnet-admin`）保存时落到的就是 profile 里
 `cordis.patch.yml` 那一行的 `config`；手工写文件与在页面上改完全等价，没有优先级之分。
 
 - 两个字段都是一行一条；配置页里也认逗号，从本文档抄一行过去不用改。
+- `pageHosts` 不写这一项就用默认 `.ts.net`；清空输入框并保存写的是**显式空表**（不注入），不会回落到默认。
 - 命不中的写法会在配置页里**当场挡住保存**：主机只认 `*`、`.` 开头的后缀、精确主机名；登录名只认转小写后
   整串相等的可打印 ASCII（没有通配符，逗号、显示名、空格、非 ASCII 都不行）。写进去只会静默不生效，所以不如
   在保存前挡住。
@@ -158,20 +160,24 @@ ExecStart=%h/.npm/_npx/<hash>/node_modules/.bin/dsh web --host 127.0.0.1 --port 
 - **共享节点**：把设备分享给别人后，对方访问时带的是**对方自己的**登录名；不在名单里就进不来。
 - 保留下来的是 **Host/Origin 栅栏**：只认回环 Host 或 `--trusted-host` / `trustedHosts` 声明过的
   authority，并拒绝 `Sec-Fetch-Site: cross-site`。它挡的是 DNS 重绑定与跨站请求，**不挡**「知道地址的人」。
-- 反过来，`pageHosts` 只影响**浏览器端**的设置持久化与界面可用性，它不改变服务端的任何判定。
+- 反过来，`pageHosts` 只影响**浏览器端**的设置持久化与界面可用性，它不改变服务端的任何判定。默认
+  `.ts.net` 是插件场景决定的，不是认证开关；想彻底关掉注入，就在配置页把它清空并保存。
 
-建议的组合：`pageHosts` 按需开；`allowedUsers` 只写自己的登录名，别把「所有用 Tailscale 的人」都写进去。
-想撤回：在配置页把名单清空（或删掉 `cordis.patch.yml` 里的 `allowedUsers`）即可 —— 立刻恢复 token 校验，
-`pageHosts` 下一次打开页面时恢复，没有任何状态需要清理。
+建议的组合：`pageHosts` 保持默认 `.ts.net`，自定义域名/反代再加一条；`allowedUsers` 只写自己的登录名，
+别把「所有用 Tailscale 的人」都写进去。想撤回认证：在配置页把名单清空（或删掉 `cordis.patch.yml` 里的
+`allowedUsers`）即可 —— 立刻恢复 token 校验。想连页面注入也停掉：把页面主机清空并保存（显式空表），
+下一次打开页面时生效。没有任何状态需要清理。
 
 > 从旧版升级：原来的 `disableBrowserAuth: true` 已经不在 schema 里，Loader 会静默忽略它，效果等于把认证
-> 恢复原样。把它换成 `allowedUsers` 名单，否则页面会重新开始要 token。
+> 恢复原样。把它换成 `allowedUsers` 名单，否则页面会重新开始要 token。另外，`pageHosts` 现在不写时默认
+> `.ts.net`（以前是空表）；已经显式写了值（包括 `[]`）的配置不变。
 
 ## 排障
 
 | 现象 | 原因 |
 | --- | --- |
-| 设置页仍报 `settings are unavailable in this browser` | `pageHosts` 没命中当前页面的主机名（后缀匹配要带点：`.ts.net`），或改完还没刷新页面 |
+| 设置页仍报 `settings are unavailable in this browser` | 当前页面主机不匹配 `pageHosts`（默认只含 `.ts.net`；自定义域名/反代要自己加），或改完还没刷新页面 |
+| 不想在任何页面注入脚本 | 在配置页把页面主机清空并保存（显式空表），不是删掉这一项 |
 | 请求直接 403 | Host/Origin 栅栏没过：给 `dsh web` 加 `--trusted-host <authority>` |
 | 仍然要 `?token=` | `allowedUsers` 是空表；当前用户的登录名不在名单里；或者请求没经过 tailscale serve（tagged device、Funnel、直连），没有 `Tailscale-User-Login` |
 | 名单里的用户也被拒 | 登录名写错（写成了显示名或设备名），或请求没经过 tailscale serve；看日志里「拒绝了不在 allowedUsers 里的 Tailscale 用户：…」那一行的真实登录名 |

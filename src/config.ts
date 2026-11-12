@@ -4,8 +4,9 @@ import z from '@deepseek-ai/schemastery'
 /**
  * 插件配置。
  *
- * **两项配置默认都是"什么都不做"**：不注入页面脚本、不碰浏览器认证。把有副作用的配置留给使用者显式
- * 打开 —— 这是一个会动到认证边界的插件，"装了就生效"不是合适的默认值。
+ * **默认值按各自的影响面分开**：`pageHosts` 默认 `.ts.net`（这是插件的使用场景：Tailnet 页面），
+ * 它只影响浏览器端的设置持久化；`allowedUsers` 默认空表，也就是**不碰认证**。认证边界是另一回事，
+ * "装了就生效"不是合适的默认值。
  *
  * 两个字段都标了 `.volatile()`，这决定了配置从哪儿来、改了之后什么时候生效：
  *
@@ -17,15 +18,20 @@ import z from '@deepseek-ai/schemastery'
  * 配置也**只有一个来源**：这份配置。环境变量那条路已经删掉，理由与代价见
  * `.agents/notes/implemented/architecture/2026-10-09-config-page-is-the-only-source.md`。
  */
+/** `pageHosts` 的默认值：Tailnet 的 MagicDNS 后缀。 */
+export const DEFAULT_PAGE_HOSTS = ['.ts.net'] as const
+
 export const Config = z.object({
   /**
    * 哪些页面主机按「本机」处理。
    *
-   * - `.ts.net`：后缀匹配（点开头即后缀）
-   * - `dsh.example.com`：精确匹配
+   * - `.ts.net`：后缀匹配（点开头即后缀），默认值，覆盖常见的 Tailnet 域名
+   * - `dsh.example.com`：精确匹配，自定义域名或反向代理时加这一条
    * - `*`：所有主机（等于放弃这条判定的隔离作用）
+   *
+   * 显式设成空表 = 一行都不注入；不写这一项 = 用默认的 `.ts.net`。
    */
-  pageHosts: z.array(String).default([]).volatile(),
+  pageHosts: z.array(String).default([...DEFAULT_PAGE_HOSTS]).volatile(),
   /**
    * 允许免掉浏览器会话校验的 Tailscale 登录名（例如 `alice@example.com`）。
    *

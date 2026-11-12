@@ -16,9 +16,9 @@ export const NS = 'settings.tailnetAdmin'
 
 export const zh = {
   pageHostsLabel: '按「本机」处理的页面主机',
-  pageHostsHint: '一行一条：.ts.net 命中它的子域（不命中裸域名），dsh.example.com 精确匹配，* 命中所有主机。留空并保存 = 这条判定不注入。',
+  pageHostsHint: '一行一条，默认 .ts.net（Tailnet 的 MagicDNS 后缀）：.ts.net 命中它的子域（不命中裸域名），dsh.example.com 精确匹配，* 命中所有主机。留空并保存 = 显式不注入；要恢复默认点「恢复默认」。',
   pageHostsInvalid: '这几条注入脚本命不中任何主机：不要写 *.ts.net、协议、路径、端口、空格，也不要以点结尾。要整段后缀请写 .ts.net，要全部请写 *。',
-  pageHostsPlaceholder: '.ts.net',
+  pageHostsPlaceholder: 'dsh.example.com',
   allowedUsersLabel: '允许免 token 进入的 Tailscale 用户',
   allowedUsersHint: '一行一条，写 Tailscale 登录名（例如 alice@example.com），不区分大小写，必须整串相同。只对经过 tailscale serve、请求里带 Tailscale-User-Login 的访问生效；留空并保存 = 不碰浏览器会话校验。',
   allowedUsersInvalid: '这些条目匹配不到任何用户：不要写空格、逗号、通配符或非 ASCII 字符（* 在这里不是通配符）。请写完整的 Tailscale 登录名，不要写显示名。',
@@ -35,9 +35,9 @@ export const zh = {
 
 export const en: Record<keyof typeof zh, string> = {
   pageHostsLabel: 'Page hosts treated as this machine',
-  pageHostsHint: 'One per line: .ts.net matches its subdomains (not the bare domain), dsh.example.com matches exactly, * matches everything. Save with the box empty to inject nothing.',
+  pageHostsHint: 'One per line; the default is .ts.net (the Tailnet MagicDNS suffix): .ts.net matches its subdomains (not the bare domain), dsh.example.com matches exactly, * matches everything. Saving an empty box means no injection; use Reset to return to the default.',
   pageHostsInvalid: 'These rules cannot match any host: no *.ts.net, scheme, path, port, spaces, or trailing dot. Write .ts.net for a whole suffix, or * for everything.',
-  pageHostsPlaceholder: '.ts.net',
+  pageHostsPlaceholder: 'dsh.example.com',
   allowedUsersLabel: 'Tailscale users allowed in without a token',
   allowedUsersHint: 'One per line: the Tailscale login name (for example alice@example.com), matched case-insensitively as a whole string. Only applies to requests that pass through tailscale serve and carry Tailscale-User-Login. Save with the box empty to leave the browser session check alone.',
   allowedUsersInvalid: 'These entries cannot match any user: no spaces, commas, wildcards, or non-ASCII characters (* is not a wildcard here). Write the full Tailscale login name, not a display name.',

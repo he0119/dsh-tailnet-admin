@@ -20,6 +20,8 @@
   官方扩展点、`placement: head`、改完刷新即生效。
 - [主机规则是子域边界匹配](../.agents/notes/implemented/architecture/2026-09-30-host-rules-are-subdomain-bounded.md)：
   `.ts.net` 命中子域、不命中裸域名，也不命中 `evilts.net`。
+- [pageHosts 默认 .ts.net](../.agents/notes/implemented/architecture/2026-11-12-page-hosts-default-ts-net.md)：
+  插件的场景就是 Tailnet 页面，默认值直接覆盖常见域名；自定义域名/反代仍然在字段里加。
 
 **② 免掉每次换 token，但只放行指定的人**
 
@@ -30,8 +32,8 @@
 
 **安全上的共同表态**
 
-- [两项配置默认都不做事](../.agents/notes/implemented/architecture/2026-09-30-switches-default-to-off.md)：
-  默认值不改变这台机器的安全状态。
+- [认证边界默认不做事](../.agents/notes/implemented/architecture/2026-09-30-switches-default-to-off.md)：
+  `allowedUsers` 默认空表，默认值不改变这台机器的安全状态。
 
 **配置的取值只有一个来源**
 
@@ -57,7 +59,7 @@
 
 | 需求 | 该动谁 |
 | --- | --- |
-| 设置页在域名下能用 | 本插件的 `pageHosts` |
+| 设置页在域名下能用 | 本插件的 `pageHosts`（默认 `.ts.net`；自定义域名/反代自己加） |
 | 不想每次换 token，但仍只想让指定的人进 | 本插件的 `allowedUsers`（Tailscale 登录名名单） |
 | 请求者的 Tailscale 身份从哪来 | `tailscale serve` 加的 `Tailscale-User-Login`（Funnel 与 tagged device 没有） |
 | 改这两项配置 | 本插件的配置页（**设置 → 插件 → dsh-tailnet-admin**），等价地写 profile 的 `cordis.patch.yml` |

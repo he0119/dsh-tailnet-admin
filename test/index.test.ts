@@ -21,11 +21,13 @@ import { asPluginConfig, createConfig, createFakeAuth, createFakeHost, loginRequ
 const ALICE = 'alice@example.com'
 const BOB = 'bob@example.com'
 
-test('默认配置什么都不做：不注入、不碰认证', () => {
+test('默认配置：只把 .ts.net 当本机，不碰认证', () => {
   const host = createFakeHost()
   apply(host.ctx, asPluginConfig(createConfig()))
 
-  assert.deepEqual(host.renderIndex(), [], '没有 pageHosts 就不该有注入行')
+  const rows = host.renderIndex()
+  assert.equal(rows.length, 1, '默认的 .ts.net 应当有一行注入')
+  assert.ok(rows[0]?.kind === 'script' && rows[0].text.includes('.ts.net'))
 
   const auth = createFakeAuth()
   host.connection.browserAuth = auth
@@ -54,17 +56,19 @@ test('渲染时读的是当前规则：改完配置，同一个订阅者下一�
   const host = createFakeHost()
   apply(host.ctx, asPluginConfig(config))
 
-  assert.deepEqual(host.renderIndex(), [], '一开始是空表，不注入')
+  const initial = host.renderIndex()
+  assert.equal(initial.length, 1, '默认的 .ts.net 一开始就有一行')
+  assert.ok(initial[0]?.kind === 'script' && initial[0].text.includes('.ts.net'))
 
-  config.pageHosts.set(['.ts.net'])
+  config.pageHosts.set(['dsh.example.com'])
   host.emitVolatile([['pageHosts']])
   const rows = host.renderIndex()
-  assert.equal(rows.length, 1, 'volatile 更新之后，下一次渲染就带上脚本')
-  assert.ok(rows[0]?.kind === 'script' && rows[0].text.includes('.ts.net'))
+  assert.equal(rows.length, 1, 'volatile 更新之后，下一次渲染就换成新规则')
+  assert.ok(rows[0]?.kind === 'script' && rows[0].text.includes('dsh.example.com'))
 
   config.pageHosts.set([])
   host.emitVolatile([['pageHosts']])
-  assert.deepEqual(host.renderIndex(), [], '清空之后又回到不注入')
+  assert.deepEqual(host.renderIndex(), [], '显式空表才回到不注入')
 })
 
 test('名单非空时只放行名单里的用户，作用域销毁后还原', () => {
