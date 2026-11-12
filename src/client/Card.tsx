@@ -77,6 +77,10 @@ export function TailnetAdminCard(props: TailnetAdminCardProps) {
 
   return (
     <div data-dsh-tailnet-admin="">
+      <div className="dta-section-head">
+        <h4 className="dta-section-title">{t('configTitle')}</h4>
+        <span className="dta-section-note">{t('configNote')}</span>
+      </div>
       <SettingsForm
         labels={formLabels(t)}
         state={state}

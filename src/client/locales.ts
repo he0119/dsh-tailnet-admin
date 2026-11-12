@@ -15,6 +15,8 @@ import type { TranslateNS } from '@deepseek-ai/dsh-client-locale/client'
 export const NS = 'settings.tailnetAdmin'
 
 export const zh = {
+  configTitle: '配置',
+  configNote: '改完点保存，立即生效，不需要重启',
   pageHostsLabel: '按「本机」处理的页面主机',
   pageHostsHint: '一行一条，默认 .ts.net（Tailnet 的 MagicDNS 后缀）：.ts.net 命中它的子域（不命中裸域名），dsh.example.com 精确匹配，* 命中所有主机。留空并保存 = 显式不注入；要恢复默认点「恢复默认」。',
   pageHostsInvalid: '这几条注入脚本命不中任何主机：不要写 *.ts.net、协议、路径、端口、空格，也不要以点结尾。要整段后缀请写 .ts.net，要全部请写 *。',
@@ -34,6 +36,8 @@ export const zh = {
 } as const
 
 export const en: Record<keyof typeof zh, string> = {
+  configTitle: 'Configuration',
+  configNote: 'Save applies changes immediately; no restart needed',
   pageHostsLabel: 'Page hosts treated as this machine',
   pageHostsHint: 'One per line; the default is .ts.net (the Tailnet MagicDNS suffix): .ts.net matches its subdomains (not the bare domain), dsh.example.com matches exactly, * matches everything. Saving an empty box means no injection; use Reset to return to the default.',
   pageHostsInvalid: 'These rules cannot match any host: no *.ts.net, scheme, path, port, spaces, or trailing dot. Write .ts.net for a whole suffix, or * for everything.',

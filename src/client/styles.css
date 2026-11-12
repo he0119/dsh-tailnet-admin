@@ -3,6 +3,32 @@
    一条发丝线，标签 13px/500 用 primary，提示 12px 用 tertiary，输入框 0.5px 描边 + 圆角 + 第三层底色。
    颜色只引用 dsh web 定义过的主题 token（`--dsw-alias-*`）并各带回退值，深浅色自动跟随。 */
 
+/* 配置区与上面的插件介绍之间的分隔：一个和官方 section 标题同字号的标题，下面一条发丝线。
+   官方页的其它 section（版本、来源）都有标题，配置区原本没有，所以看起来和介绍连在一起。 */
+[data-dsh-tailnet-admin] .dta-section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 10px;
+  border-bottom: 0.5px solid var(--dsw-alias-border-l2, rgba(128, 128, 128, 0.28));
+}
+
+[data-dsh-tailnet-admin] .dta-section-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 20px;
+  color: var(--dsw-alias-label-primary, #e6e6e6);
+}
+
+[data-dsh-tailnet-admin] .dta-section-note {
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--dsw-alias-label-tertiary, rgba(128, 128, 128, 0.9));
+  text-align: right;
+}
+
 [data-dsh-tailnet-admin] .dta-field {
   display: flex;
   flex-direction: column;
