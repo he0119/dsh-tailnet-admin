@@ -1,9 +1,8 @@
 /**
- * 配置契约：两个开关的样子、默认值与"改了就生效"的那一半。
+ * 配置契约：两项配置的样子、默认值与"改了就生效"的那一半。
  *
  * 这一份测的是**配置本身**，不是插件行为：字段是不是 volatile（设置页能不能看见它们，全靠这一条）、
- * 默认值是不是都关着（安全边界的第一道，见 AGENTS.md 硬约束 1）、布尔量的类型是不是严格到"写错就
- * 拒绝加载"（以前那条"只认 1/true/on/yes"的环境变量规则由它接手）。
+ * 默认值是不是都不做事（安全边界的第一道，见 AGENTS.md 硬约束 1）、名单是不是严格到"写错就拒绝加载"。
  *
  * @module dsh-tailnet-admin/test/config
  */
@@ -34,34 +33,34 @@ function nodeOf(field: string): SchemaNode | undefined {
 }
 
 test('两个字段都是 volatile：这是它们能出现在配置页上的唯一理由', () => {
-  for (const field of ['pageHosts', 'disableBrowserAuth']) {
+  for (const field of ['pageHosts', 'allowedUsers']) {
     assert.equal(nodeOf(field)?.meta?.volatile, true, `${field} 没标 .volatile()：设置服务会把它整个跳过`)
   }
 })
 
-test('默认值都是"什么都不做"：空表 + 保留认证', () => {
+test('默认值都是"什么都不做"：空表 + 空名单', () => {
   assert.deepEqual(nodeOf('pageHosts')?.meta?.default, [], 'pageHosts 默认必须是空表')
-  assert.equal(nodeOf('disableBrowserAuth')?.meta?.default, false, 'disableBrowserAuth 默认必须是 false')
+  assert.deepEqual(nodeOf('allowedUsers')?.meta?.default, [], 'allowedUsers 默认必须是空表')
 
   const parsed = Config({})
   assert.deepEqual(parsed.pageHosts.get(), [])
-  assert.equal(parsed.disableBrowserAuth.get(), false)
+  assert.deepEqual(parsed.allowedUsers.get(), [])
 })
 
 test('缺省配置解析得出引用；显式给值就读得到', () => {
-  const parsed = Config({ pageHosts: ['.ts.net'], disableBrowserAuth: true })
+  const parsed = Config({ pageHosts: ['.ts.net'], allowedUsers: ['alice@example.com'] })
   assert.deepEqual(parsed.pageHosts.get(), ['.ts.net'])
-  assert.equal(parsed.disableBrowserAuth.get(), true)
+  assert.deepEqual(parsed.allowedUsers.get(), ['alice@example.com'])
 })
 
-test('布尔量不是真的布尔就拒绝加载，而不是当成"开了"', () => {
-  for (const wrong of ['true', '1', 'on', 'yes', 1, {}]) {
+test('名单不是字符串数组就拒绝加载，而不是悄悄忽略', () => {
+  for (const wrong of ['alice@example.com', [1], [true], {}, 1]) {
     assert.throws(
-      () => Config({ disableBrowserAuth: wrong as never }),
-      `disableBrowserAuth=${JSON.stringify(wrong)} 应当被 schema 拒绝：一个手滑不该变成"关掉认证"`,
+      () => Config({ allowedUsers: wrong as never }),
+      `allowedUsers=${JSON.stringify(wrong)} 应当被 schema 拒绝：名单的形状不能靠猜`,
     )
   }
 
-  // null 在 schemastery 里的意思是"这一项没给"，于是回落默认值 false —— 同样是 fail-closed。
-  assert.equal(Config({ disableBrowserAuth: null }).disableBrowserAuth.get(), false)
+  // null 在 schemastery 里的意思是"这一项没给"，于是回落默认空表 —— 同样是 fail-closed。
+  assert.deepEqual(Config({ allowedUsers: null }).allowedUsers.get(), [])
 })

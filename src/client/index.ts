@@ -1,5 +1,5 @@
 /**
- * `dsh-tailnet-admin` 的 Web Client 端：把两个开关做成「插件」页上本插件那个包页的配置表单。
+ * `dsh-tailnet-admin` 的 Web Client 端：把两项配置做成「插件」页上本插件那个包页的配置表单。
  *
  * 注册进 `plugins.bundle.config`（键是包名 `@he0119/dsh-tailnet-admin`）：官方插件管理页把这一份贡献
  * 画在本插件那张包页的描述与行列表之间，于是"点开插件列表里的本插件就是配置页"，不用再多一层行详情。

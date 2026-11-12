@@ -1,4 +1,4 @@
-# Agent Note: 两个开关默认都不做事
+# Agent Note: 两项配置默认都不做事
 
 Status: implemented
 
@@ -9,12 +9,12 @@ Status: implemented
 
 ## Decision
 
-`pageHosts` 默认空表（一行都不注入），`disableBrowserAuth` 默认 `false`（保留认证）。② 必须由
-使用者显式打开，README 的第一屏就写明代价。
+`pageHosts` 默认空表（一行都不注入），`allowedUsers` 默认空表（不碰认证）。② 必须由使用者显式填
+名单，README 的第一屏就写明代价。
 
 ## Alternatives considered
 
-**「装了就生效」。** 那会让只是想要 ①（设置页能用）的人顺手放弃认证。一个有副作用的开关不该在装上
+**「装了就生效」。** 那会让只是想要 ①（设置页能用）的人顺手放宽认证。一项有副作用的配置不该在装上
 的一刻就改变这台机器的安全状态。
 
 **只把 ② 留成显式，① 默认全放行。** `pageHosts` 也有代价：命中主机的页面被当成有宿主权限。而
@@ -22,7 +22,7 @@ Status: implemented
 
 ## Consequences
 
-- 两个开关的值只有一个来源：插件配置页（或等价地，profile 的 `cordis.patch.yml`）。环境变量那条路在
+- 两项配置的值只有一个来源：插件配置页（或等价地，profile 的 `cordis.patch.yml`）。环境变量那条路在
   [2026-10-09-config-page-is-the-only-source.md](2026-10-09-config-page-is-the-only-source.md) 里整条删掉，
-  "typo 被宽容解析成开"这类风险从此由 schema 层挡（写错类型直接拒绝加载，见根
+  "typo 被宽容解析成一项"这类风险从此由 schema 层挡（名单不是字符串数组直接拒绝加载，见根
   [AGENTS.md](../../../../AGENTS.md) 硬约束第 3 条）。

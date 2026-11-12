@@ -10,11 +10,11 @@
 
 </div>
 
-把 Tailnet / 反向代理页面当作「本机」来用：让 DSH 的设置页在非回环地址上可用，并按需关掉浏览器会话校验
-（Host/Origin 栅栏保持不动）。
+把 Tailnet / 反向代理页面当作「本机」来用：让 DSH 的设置页在非回环地址上可用，并按 Tailscale 身份
+只放行指定用户（Host/Origin 栅栏保持不动）。
 
-> ⚠️ 这个插件会动到认证边界：**两个开关默认都关着**，装上去不改变任何行为。打开第二个之前，请先读
-> [安全边界](#安全边界必读)。
+> ⚠️ 这个插件会动到认证边界：**两项配置默认都不做事**，装上去不改变任何行为。填 `allowedUsers` 之前，
+> 请先读[安全边界](#安全边界必读)。
 
 ## 它解决什么
 
@@ -29,7 +29,12 @@
 **② 每次重启都要重新换 token**：宿主的 `/api` 判定是「Host/Origin 栅栏 + 浏览器会话认证」两层。认证那层
 要一个由 `?token=` 换来的、**按 authority 绑定**的 cookie；token 每次启动都重新生成，cookie 换地址即失效。
 
-插件把这两件事拆成两个独立开关：`pageHosts` 解决 ①，`disableBrowserAuth` 解决 ②。为什么这么默认、
+从 Tailscale 进来时，`tailscale serve` 会在转发给 DSH 的请求上加 `Tailscale-User-Login`（请求者的登录名，
+例如 `alice@example.com`），并且会先删掉入站请求里的同名头，避免客户端自己伪造。插件可以只认这个头：
+名单里的用户不再需要 token；名单外但带着这个头的请求直接拒绝；没带这个头的访问（没经过 tailscale serve、
+Funnel、tagged device）回落到原来的 cookie 校验。
+
+插件把这两件事拆成两项独立配置：`pageHosts` 解决 ①，`allowedUsers` 解决 ②。为什么这么默认、
 代价是什么，见 [.agents/notes/implemented/](.agents/notes/implemented)（中文）。
 
 ## 安装
@@ -69,18 +74,23 @@ npx @deepseek-ai/dsh plugin --profile web add link:/path/to/dsh-tailnet-admin
 用图形界面也行：**设置 → 插件**里会列出「已安装但未启用」的包，启用一次做的是同一件事。
 
 改完重启 DSH（systemd 部署的话：`systemctl --user restart dsh-web`）。启动日志里会出现
-`[dsh-tailnet-admin] …` 那两行，说明插件到位了。
+`[dsh-tailnet-admin] …` 那几行，说明插件到位了。
 
-### 3. 打开开关（配置页）
+### 3. 填配置（配置页）
 
-**设置 → 插件 → `dsh-tailnet-admin`**：本插件那张包页的描述下面就是配置表单，两个开关都在那儿。
+**设置 → 插件 → `dsh-tailnet-admin`**：本插件那张包页的描述下面就是配置表单，两项配置都在那儿。
 
 - **按「本机」处理的页面主机**：一行一条。`.` 开头 = 后缀匹配（`.ts.net` 命中 `a.ts.net`，不命中裸
   `ts.net`），也可以写精确主机名，或写 `*` 命中全部。
-- **关闭浏览器会话校验**：开关，默认关；打开前先读[安全边界](#安全边界必读)。
+- **允许免 token 进入的 Tailscale 用户**：一行一条，写完整的 Tailscale 登录名（例如
+  `alice@example.com`），不区分大小写。留空 = 不碰浏览器会话校验。填之前先读[安全边界](#安全边界必读)。
 
-改完点**保存**。`disableBrowserAuth` 立刻生效，`pageHosts` 在**下一次打开页面**时生效（刷新一次即可），
+改完点**保存**。`allowedUsers` 立刻生效，`pageHosts` 在**下一次打开页面**时生效（刷新一次即可），
 两者都不需要重启 DSH。
+
+登录名就是 Tailscale 管理后台里你的用户账号（通常是邮箱），不是设备名或显示名。插件拒绝某个用户时会把
+真实登录名打进日志（`[dsh-tailnet-admin] 拒绝了不在 allowedUsers 里的 Tailscale 用户：…`），照着那一行
+填即可。
 
 > 第一次要绕个弯：`pageHosts` 还没命中当前页面的主机名时，浏览器端不把这些设置当作可持久化（原因见
 > [它解决什么](#它解决什么)），配置页会明说「只写进这个浏览器」。所以第一个主机要么**从回环地址打开
@@ -93,26 +103,27 @@ npx @deepseek-ai/dsh plugin --profile web add link:/path/to/dsh-tailnet-admin
   config:
     pageHosts:
       - .ts.net              # 也可以写精确主机名，或 `*`
-    disableBrowserAuth: true # 默认 false；打开前先读「安全边界」
+    allowedUsers:
+      - alice@example.com   # 你在 Tailscale 里的登录名；留空 = 不碰认证
 ```
 
-## 开关
+## 配置
 
-| 开关 | 默认 | 作用 |
+| 配置 | 默认 | 作用 |
 | --- | --- | --- |
 | `pageHosts` | `[]` | 哪些页面主机按「本机」处理。`.` 开头 = 后缀匹配；`*` = 全部 |
-| `disableBrowserAuth` | `false` | 是否关闭浏览器会话校验（token/cookie） |
+| `allowedUsers` | `[]` | 哪些 Tailscale 登录名可以免掉浏览器会话校验。空表 = 不碰认证 |
 
 两处写的是同一份配置：**插件配置页**（`设置 → 插件 → dsh-tailnet-admin`）保存时落到的就是 profile 里
 `cordis.patch.yml` 那一行的 `config`；手工写文件与在页面上改完全等价，没有优先级之分。
 
-- 规则表一行一条；配置页里也认逗号，从本文档抄一行过去不用改。
-- 命不中的写法（`*.ts.net`、带协议或端口、带空格）在配置页里**当场挡住保存**：注入脚本只认 `*`、`.` 开头的
-  后缀、精确主机名这三种，其余写进去只会静默不生效。
-- 布尔量只认真正的布尔（YAML 的 `true` / `false`）。写成 `'true'` 这类字符串会被 Loader **拒绝加载**，
-  而不是变成一个「打开」——一个手滑不该变成关掉认证。
+- 两个字段都是一行一条；配置页里也认逗号，从本文档抄一行过去不用改。
+- 命不中的写法会在配置页里**当场挡住保存**：主机只认 `*`、`.` 开头的后缀、精确主机名；登录名只认转小写后
+  整串相等的可打印 ASCII（没有通配符，逗号、显示名、空格、非 ASCII 都不行）。写进去只会静默不生效，所以不如
+  在保存前挡住。
+- `allowedUsers` 不是字符串数组（例如写成单个字符串）会被 Loader **拒绝加载**，而不是被猜成一项。
 
-systemd 部署只负责栅栏那一层，两个开关不走环境变量（见
+systemd 部署只负责栅栏那一层，两项配置不走环境变量（见
 [.agents/notes/implemented/](.agents/notes/implemented) 里的那条决策）：
 
 ```ini
@@ -122,27 +133,39 @@ ExecStart=%h/.npm/_npx/<hash>/node_modules/.bin/dsh web --host 127.0.0.1 --port 
 ```
 
 > `--trusted-host`（或 profile 里 connection 插件的 `trustedHosts`）是**另一条**独立要求：`/api` 的
-> Host/Origin 栅栏只认回环或声明过的 authority。只开本插件的开关、不给 `--trusted-host`，请求会在栅栏
-> 那一步就被 403 掉。
+> Host/Origin 栅栏只认回环或声明过的 authority。只填本插件的 `allowedUsers`、不给 `--trusted-host`，请求会在
+> 栅栏那一步就被 403 掉。
 >
 > `--public-url`（DSH `0.2.1-alpha.1` 起）是纯广告位：它只改 DSH 报出去的地址 —— 打印与打开的启动
 > URL、`DSH_WEB_URL`、给模型的方位提示；不配置监听、路由或 cookie 作用域，**也不放宽信任**，所以替不掉
-> 本插件的任何一个开关。它的用处是让 `?token=` 换 cookie 落在你真正使用的 authority 上，不必再手工把
+> 本插件的任何一项配置。它的用处是让 `?token=` 换 cookie 落在你真正使用的 authority 上，不必再手工把
 > token 搬到对外地址。
 
 ## 安全边界（必读）
 
-`disableBrowserAuth: true` 关掉的是「谁可以进这个界面」的认证。打开之后：
+`allowedUsers` 改的是「谁可以免 token 进这个界面」。填了名单之后：
 
-- **任何能打开这个页面的人**就等于拿到这台机器的控制权 —— 读写文件、执行命令、动用你在 DSH 里配置的
-  API key。暴露面取决于 Tailscale ACL / 反向代理的访问控制，**不再取决于 token**。
+- **名单里的用户**打开页面就等于拿到这台机器的控制权 —— 读写文件、执行命令、动用你在 DSH 里配置的
+  API key。所以名单要短，只写真正需要远程管理这台机器的人。
+- **名单外的 Tailscale 用户**：请求只要带着 `Tailscale-User-Login`，一律拒绝，即使手里还留着以前换来的
+  cookie 也一样。没带这个头的访问（没经过 tailscale serve、Funnel、tagged device）回落到原来的 token
+  校验；也就是说这个插件不会把「没有身份头的请求」当成已认证。
+- **必须只监听回环地址。** 这个判断完全建立在「`Tailscale-User-Login` 是 tailscale serve 加的」之上。
+  [Tailscale 官方也要求后端只监听 localhost](https://tailscale.com/docs/features/tailscale-serve#identity-headers)；否则任何能直接打到这个端口的人都能自己写这个头。`dsh web`
+  默认监听 `127.0.0.1`，不要改成 `0.0.0.0` 或 Tailnet IP。Host/Origin 栅栏挡的是伪造 Host 与跨站请求，
+  **不挡**能直连端口的人。
+- **Tagged device 与 Funnel 没有身份头**：请求会回落到 token 校验，这份名单帮不了它们。
+- **共享节点**：把设备分享给别人后，对方访问时带的是**对方自己的**登录名；不在名单里就进不来。
 - 保留下来的是 **Host/Origin 栅栏**：只认回环 Host 或 `--trusted-host` / `trustedHosts` 声明过的
   authority，并拒绝 `Sec-Fetch-Site: cross-site`。它挡的是 DNS 重绑定与跨站请求，**不挡**「知道地址的人」。
 - 反过来，`pageHosts` 只影响**浏览器端**的设置持久化与界面可用性，它不改变服务端的任何判定。
 
-建议的组合：`pageHosts` 按需开，`disableBrowserAuth` 只在真的被 token 反复打断时开；开了就顺手确认一下
-Tailscale ACL 只放行你自己的设备。想撤回：在配置页把开关关掉（或把 `cordis.patch.yml` 里那两行改回去）
-即可 —— `disableBrowserAuth` 立刻恢复，`pageHosts` 下一次打开页面时恢复，没有任何状态需要清理。
+建议的组合：`pageHosts` 按需开；`allowedUsers` 只写自己的登录名，别把「所有用 Tailscale 的人」都写进去。
+想撤回：在配置页把名单清空（或删掉 `cordis.patch.yml` 里的 `allowedUsers`）即可 —— 立刻恢复 token 校验，
+`pageHosts` 下一次打开页面时恢复，没有任何状态需要清理。
+
+> 从旧版升级：原来的 `disableBrowserAuth: true` 已经不在 schema 里，Loader 会静默忽略它，效果等于把认证
+> 恢复原样。把它换成 `allowedUsers` 名单，否则页面会重新开始要 token。
 
 ## 排障
 
@@ -150,7 +173,8 @@ Tailscale ACL 只放行你自己的设备。想撤回：在配置页把开关关
 | --- | --- |
 | 设置页仍报 `settings are unavailable in this browser` | `pageHosts` 没命中当前页面的主机名（后缀匹配要带点：`.ts.net`），或改完还没刷新页面 |
 | 请求直接 403 | Host/Origin 栅栏没过：给 `dsh web` 加 `--trusted-host <authority>` |
-| 仍然要 `?token=` | `disableBrowserAuth` 没开（配置页里那个开关是关着的状态） |
+| 仍然要 `?token=` | `allowedUsers` 是空表；当前用户的登录名不在名单里；或者请求没经过 tailscale serve（tagged device、Funnel、直连），没有 `Tailscale-User-Login` |
+| 名单里的用户也被拒 | 登录名写错（写成了显示名或设备名），或请求没经过 tailscale serve；看日志里「拒绝了不在 allowedUsers 里的 Tailscale 用户：…」那一行的真实登录名 |
 | 启动日志里没有 `[dsh-tailnet-admin]` | 包名没写进 `dsh.profile.bundles`，或包没装上（`dsh --profile web --dump-config \| grep tailnet-admin` 可确认） |
 | 配置页说「只写进这个浏览器」、保存后 profile 没变 | 当前页面没被当作「本机」：先从回环地址打开一次，或直接改 `cordis.patch.yml` |
 | 配置页整段说「读不到这一节」 | `cordis.patch.yml` 里那一行的 `id` 不是 `tailnet-admin`，或者那一行没被启用 |

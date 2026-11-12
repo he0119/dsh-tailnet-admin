@@ -110,35 +110,46 @@ export function volatileRef<T>(initial: T): FakeRef<T> {
   }
 }
 
-/** 两个开关都是引用的假配置：测试拿得到引用本身，才能中途改值。 */
+/** 两项配置都是引用的假配置：测试拿得到引用本身，才能中途改值。 */
 export interface FakeConfig {
   pageHosts: FakeRef<string[]>
-  disableBrowserAuth: FakeRef<boolean>
+  allowedUsers: FakeRef<string[]>
 }
 
-/** 造一份假配置（缺省都是"关着"）。 */
-export function createConfig(initial: { pageHosts?: string[]; disableBrowserAuth?: boolean } = {}): FakeConfig {
+/** 造一份假配置（缺省都是"不做事"）。 */
+export function createConfig(initial: { pageHosts?: string[]; allowedUsers?: string[] } = {}): FakeConfig {
   return {
     pageHosts: volatileRef(initial.pageHosts ?? []),
-    disableBrowserAuth: volatileRef(initial.disableBrowserAuth ?? false),
+    allowedUsers: volatileRef(initial.allowedUsers ?? []),
   }
+}
+
+/** 造一个带着 Tailscale 登录名的请求：形状与宿主传给 `isAuthenticated` 的一致。 */
+export function loginRequest(login: string): { headers: Record<string, string> } {
+  return { headers: { 'tailscale-user-login': login } }
 }
 
 /** 假配置与 `PluginConfig` 的关系：引用面一致，因此能直接递给 `apply`。 */
 export const asPluginConfig = (config: FakeConfig): PluginConfig => config as PluginConfig
 
-/** 假的浏览器认证：记录被问了几次，答案默认为"没通过"。 */
+/** 假的浏览器认证：记录被问了几次、最后一次的参数，答案默认为"没通过"。 */
 export interface FakeAuth extends BrowserAuthLike {
   calls: number
+  lastRequest: unknown
+  lastSecure: boolean | undefined
 }
 
 /** 造一个假认证。 */
-export function createFakeAuth(): FakeAuth {
+export function createFakeAuth(initial: { authenticated?: boolean } = {}): FakeAuth {
   const auth: FakeAuth = {
     calls: 0,
-    isAuthenticated(_request: unknown): boolean {
+    lastRequest: undefined,
+    lastSecure: undefined,
+    isAuthenticated(request: unknown, secure?: boolean): boolean {
       auth.calls += 1
-      return false
+      auth.lastRequest = request
+      auth.lastSecure = secure
+      return initial.authenticated ?? false
     },
   }
   return auth

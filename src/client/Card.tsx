@@ -2,26 +2,26 @@
  * 配置页：插件列表里本插件那个包页上的设置。
  *
  * 只有两个控件，配方照着官方设置页来：外壳用官方 `SettingsForm`（读不到 / 只读的说明、保存按钮、
- * 保存失败的说明、离开页面丢掉草稿），两个字段自己画——`pageHosts` 是多行文本框（一行一条比单行逗号
- * 分隔好读），`disableBrowserAuth` 是开关（认证边界这种开关不该让人手打 `true`）。官方 `SettingsValueField`
- * 的私有类名抄不到，能抄的只有配方：字号、间距、描边、圆角都按它那份来（styles.css）。
+ * 保存失败的说明、离开页面丢掉草稿），两个字段自己画成多行文本框（一行一条比单行逗号分隔好读）。
+ * 官方 `SettingsValueField` 的私有类名抄不到，能抄的只有配方：字号、间距、描边、圆角都按它那份来
+ * （styles.css）。
  *
  * 官方表单**只在保存那一刻写**，因此"屏幕上是什么"就是"保存会写什么"。
  *
- * `disableBrowserAuth` 那一行是这一页唯一会让人付出代价的地方，提示与警告都常驻在控件下面，不做悬停
+ * `allowedUsers` 那一行是这一页唯一会让人付出代价的地方，提示与警告都常驻在控件下面，不做悬停
  * 才出现的那一套。
  *
  * @module dsh-tailnet-admin/client/Card
  */
 
-import { Button, SettingsForm, Switch, Tag } from '@deepseek-ai/dsh-client-ui-primitives'
+import { Button, SettingsForm, Tag } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { SettingsFormActions, SettingsFormLabels } from '@deepseek-ai/dsh-client-ui-primitives'
 
 import { FIELDS, type TailnetAdminCardState } from './form.ts'
 import { fallbackTranslate, type Translate } from './locales.ts'
 
 /** 表单字段名与草稿键是同一串字符串（rules.ts 的规格按它取字段）。 */
-const [PAGE_HOSTS, DISABLE_BROWSER_AUTH] = FIELDS
+const [PAGE_HOSTS, ALLOWED_USERS] = FIELDS
 
 /**
  * 渲染器递进来的 props：注册时 `inject` 返回的面（其中 `hooks.tailnetAdminCard` 已经变成
@@ -55,7 +55,7 @@ function formLabels(t: Translate): SettingsFormLabels {
 export function TailnetAdminCard(props: TailnetAdminCardProps) {
   const t: Translate = typeof props.t === 'function' ? props.t : fallbackTranslate
   const state = props.useTailnetAdminCard((snapshot) => snapshot)
-  // 读不到、不可写、保存中都不该再改草稿：两个控件吃同一个开关。
+  // 读不到、不可写、保存中都不该再改草稿：两个控件吃同一份可用状态。
   const disabled = !state.available || !state.writable || state.saving
 
   /** 「已覆盖」徽章与恢复按钮：值来自用户层时才出现（与官方字段一致）。 */
@@ -109,22 +109,29 @@ export function TailnetAdminCard(props: TailnetAdminCardProps) {
         </div>
 
         <div className="dta-field">
-          <div className="dta-head">
-            <span className="dta-label">{t('disableAuthLabel')}</span>
-            <div className="dta-meta">
-              {state.disableBrowserAuth.overridden ? overriddenControls(DISABLE_BROWSER_AUTH) : null}
-              <Switch
-                checked={state.disableBrowserAuth.text === 'true'}
-                label={t('disableAuthLabel')}
-                disabled={disabled}
-                onChange={(next) => {
-                  props.edit(DISABLE_BROWSER_AUTH, next ? 'true' : 'false')
-                }}
-              />
-            </div>
-          </div>
-          <p className="dta-warn">{t('disableAuthWarning')}</p>
-          <p className="dta-hint">{t('disableAuthHint')}</p>
+          <label className="dta-label" htmlFor="dta-allowed-users">{t('allowedUsersLabel')}</label>
+          <textarea
+            id="dta-allowed-users"
+            className="dta-input"
+            rows={3}
+            spellCheck={false}
+            autoComplete="off"
+            placeholder={t('allowedUsersPlaceholder')}
+            aria-invalid={state.allowedUsers.invalid}
+            disabled={disabled}
+            value={state.allowedUsers.text}
+            onChange={(event) => {
+              props.edit(ALLOWED_USERS, event.target.value)
+            }}
+          />
+          <p
+            className={state.allowedUsers.invalid ? 'dta-invalid' : 'dta-hint'}
+            role={state.allowedUsers.invalid ? 'alert' : undefined}
+          >
+            {state.allowedUsers.invalid ? t('allowedUsersInvalid') : t('allowedUsersHint')}
+          </p>
+          <p className="dta-warn">{t('allowedUsersWarning')}</p>
+          {state.allowedUsers.overridden ? <div className="dta-meta">{overriddenControls(ALLOWED_USERS)}</div> : null}
         </div>
       </SettingsForm>
     </div>

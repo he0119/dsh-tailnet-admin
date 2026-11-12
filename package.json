@@ -1,7 +1,7 @@
 {
   "name": "@he0119/dsh-tailnet-admin",
   "version": "0.1.0",
-  "description": "把 Tailnet / 反向代理页面当作「本机」来用：启用 host 持久化设置，并按需关闭浏览器会话校验（Host/Origin 栅栏保持不动）。",
+  "description": "把 Tailnet / 反向代理页面当作「本机」来用：启用 host 持久化设置，并按 Tailscale 身份只放行指定用户（Host/Origin 栅栏保持不动）。",
   "icon": "./icon.svg",
   "type": "module",
   "packageManager": "pnpm@12.6.0",
