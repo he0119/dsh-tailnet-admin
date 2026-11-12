@@ -15,9 +15,9 @@ provenance 证明。
 带 scope 有两个连带约定，都写在 `package.json` 里，别漏：
 
 - `publishConfig.access = "public"`：scoped 包**默认 restricted**，而 restricted 需要付费组织。工作流里
-  另外显式写了 `--access public`，两处一致。
-- `repository.url` 必须指向本仓库：`--provenance` 要求包元数据里的仓库与工作流所在的仓库一致，缺了或写错
-  会在生成证明那一步失败。
+  用裸 `npm publish`，access 由这里声明，不再重复写 `--access public`。
+- `repository.url` 必须指向本仓库：可信发布签 provenance 时要求包元数据里的仓库与工作流所在的仓库一致，
+  缺了或写错会在生成证明那一步失败。
 
 ## 首版是一次性例外：必须手动发
 
@@ -30,7 +30,7 @@ Publisher。也就是说 `@he0119/dsh-tailnet-admin` 的**第一个版本发不�
 npm login                      # 以 he0119 登录，需要 2FA
 pnpm run build                 # lib/ 不进 git，先出产物
 npm publish --access public    # 不加 --provenance：本机没有 OIDC，签不出证明
-#    ↑ 发出去的就是 package.json 里那个版本（当前 0.1.0）：先 pnpm version 改号再发，
+#    ↑ 发出去的就是 package.json 里那个版本（当前版本）：先 pnpm version 改号再发，
 #      别用 npm publish 顺手发一个 git 里没有的版本
 
 # 2) 去 npm 包设置页登记 Trusted Publisher（表格见下一节）
@@ -54,7 +54,8 @@ npm publish --access public    # 不加 --provenance：本机没有 OIDC，签�
 
 ## 一次发布
 
-分两段：**版本号走 PR 合进 `main`**，**想发的时候点一次 Release 按钮**。
+版本号只有一个来源：`package.json`。发布提交先把它改好，然后在那个提交上打 `v<版本>` 标签，推标签触发
+Publish（工作流文件 `publish.yml`）。
 
 ```sh
 # 1) 版本号：只改 package.json，这一步不发布
@@ -63,24 +64,18 @@ git checkout -b chore/release-0.2.0
 git commit -am "chore(release): 0.2.0"
 git push -u origin chore/release-0.2.0
 gh pr create --title "chore(release): 0.2.0" --body "…"   # 等 check 绿了再合
-#    合并之后 main 上就是 0.2.0，npm 上还没有 —— 这中间想合多少别的 PR 都行
 
-# 2) 想发的时候点按钮（Release 只打标签并触发 Publish）
-gh workflow run release.yml --ref main -f version=0.2.0
+# 2) 合进 main 之后，在发布提交上打标签并推上去
+git checkout main
+git pull
+git tag -a v0.2.0 -m "chore(release): 0.2.0"
+git push origin main --follow-tags
 
 npm view @he0119/dsh-tailnet-admin version   # 工作流绿了再确认线上版本（见「工作流绿了但查不到」）
 ```
 
-`version` 这个入参**不是版本号的来源** —— 工作流仍只从 `main` 的 `package.json` 读版本号，入参是发布者对
-自己要发什么的**断言**，对不上就什么都不做。它挡三类事：记错了现在升到哪一版、在错误的分支上点、手滑点了
-两次。
-
-标签由工作流在**当刻 `main` 顶端**打好再推 —— 标签与版本提交因此按构造是同一个 SHA，不需要人去挑提交。
-用 `GITHUB_TOKEN` 推的标签不会再触发别的 workflow，所以 Release 工作流会用 `workflow_dispatch` 触发
-Publish；真正的 npm 发布与 GitHub Release 都在 Publish 那次运行里。
-
-不要改成 `workflow_call`：npm 的可信发布按实际执行 `npm publish` 的工作流文件校验，复用工作流会让它
-看到的文件名和 npm 上登记的 `publish.yml` 对不上，发布会被 404 拒掉。
+标签是唯一的发布入口：Publish 只在 `push: tags: v*` 时运行，没有 `workflow_dispatch`，也没有单独的
+Release 按钮。标签必须打在**版本提交**上；打错了会停在三道校验，不会误发。
 
 ## Publish 的三道硬校验
 
@@ -93,20 +88,9 @@ Publish；真正的 npm 发布与 GitHub Release 都在 Publish 那次运行里�
 | `main` 当前的 `package.json` 仍是这个版本 | 往旧版本倒灌：main 升到 0.2.1 之后再补发 0.2.0，npm 的 `latest` 会被拽回去 |
 
 已经在 npm 上的同版本会被识别为「已存在」并安全跳过（这一步跳过时 Release 条目仍然会建出来）。重试时
-**不要删标签**：再点一次按钮、或 `gh run rerun <run-id>`，两条路都不会重复发布。
+**不要删标签**：`gh run rerun <run-id>` 即可；标签已经存在时，重推标签不会触发新的运行。
 
-需要绕开按钮时，标签推送这条入口一直在：
-
-```sh
-git tag -a v0.2.0 -m "chore(release): 0.2.0" origin/main
-git push origin v0.2.0
-```
-
-也可以在 `main` 上直接触发 Publish，用 `tag` 指定要发的标签：
-
-```sh
-gh workflow run publish.yml --ref main -f tag=v0.2.0
-```
+要补发/重试另一个版本，就改 `package.json`、合进 `main`、再打一个新标签。
 
 ## 工作流绿了但 `npm view` 查不到
 
