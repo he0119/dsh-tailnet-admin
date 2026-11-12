@@ -127,9 +127,11 @@ jobs:
             echo "skip=false" >> "$GITHUB_OUTPUT"
           fi
 
+      # 可信发布由 npm 用这次 OIDC 身份自动签名 provenance，不需要 --provenance；
+      # access 已由 package.json 的 publishConfig 设为 public。与 dsh-notifications 的发布命令保持一致。
       - name: 发布到 npm
         if: steps.check.outputs.skip != 'true'
-        run: npm publish --provenance --access public
+        run: npm publish
 
       - name: 该版本已存在，跳过发布
         if: steps.check.outputs.skip == 'true'
