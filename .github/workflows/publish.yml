@@ -1,25 +1,13 @@
 name: Publish
 
-# 把某个标签指向的提交发到 npm（可信发布），成功后自动建 GitHub Release —— 见 docs/releasing.md。
+# 推一个 v* 标签（例如 v0.1.0）就发布到 npm，成功后建 GitHub Release。步骤与前置条件见
+# docs/releasing.md。
 #
-# 三条入口，都通向「同一个提交上的同一个标签」：
-#   - release.yml：人工点 Release 按钮，它打标签后用 workflow_dispatch 触发本工作流；
-#   - 直接推一个 v* 标签：手动补发与善后走这条；
-#   - 在 main 上手动 workflow_dispatch，用 tag 指定要发的标签（补发/重试）。
-#
-# 不走 workflow_call：npm 的可信发布按实际执行 npm publish 的工作流文件校验，复用工作流会让它
-# 看到的文件名和 npm 上登记的 publish.yml 对不上，发布会被 404 拒掉。
+# 没有 workflow_dispatch：发布只能由标签触发。手动触发会在默认分支上跑，等于凭空指定一个版本发出去，
+# 正是「标签是唯一版本来源」要防的事。要发版就打标签。
 on:
   push:
     tags: ['v*']
-  # 手动补发/重试入口：在 main 上触发时用 tag 指定要发的标签。
-  # 这样 OIDC 的工作流文件就是 publish.yml，不经过 release.yml。
-  workflow_dispatch:
-    inputs:
-      tag:
-        description: 要发布的标签（vX.Y.Z）
-        type: string
-        required: true
 
 permissions:
   contents: read
@@ -37,22 +25,15 @@ jobs:
   publish:
     needs: check
     runs-on: ubuntu-latest
-    # 标签名：workflow_call 由 release.yml 传进来，标签推送触发时从 ref 里取。
-    env:
-      TAG: ${{ inputs.tag || github.ref_name }}
     permissions:
       # contents: write 是给最后那步建 Release 的；npm 那两步不需要它。
       contents: write
       # 下面两步都要 OIDC：npm 可信发布用它换取短期凭据，provenance 用它签名。
       id-token: write
     steps:
-      # ref 显式钉在标签上：标签推送触发时默认检出的就是它，但被 release.yml 以 workflow_call 调进来时
-      # 默认检出的是**调用方**的 ref（main 顶端），那样发出去的会是 main 的树、而版本号来自标签，
-      # 「标签指着哪个提交就发哪个提交」这条就断了。
       # fetch-depth: 0 —— 下面的落点校验要判断标签是不是 origin/main 的祖先，浅克隆没有这段历史。
       - uses: actions/checkout@v5
         with:
-          ref: ${{ env.TAG }}
           fetch-depth: 0
 
       # 发布固定使用 Node 24.11：它属于官方支持范围，并自带满足可信发布要求（>= 11.5.1）的 npm 11。
@@ -67,7 +48,7 @@ jobs:
       - name: 校验标签与 package.json
         run: |
           set -euo pipefail
-          tag="${TAG}"
+          tag="${GITHUB_REF#refs/tags/}"
           version="${tag#v}"
 
           # 标签必须能解析成 x.y.z（可带预发布后缀）。package.json 已由发布 PR 写好版本号，这里只核对、
@@ -84,7 +65,7 @@ jobs:
       - name: 校验标签落点（在 main 上 · 该提交就是版本提交 · 这个版本仍是 main 的当前版本）
         run: |
           set -euo pipefail
-          tag="${TAG}"
+          tag="${GITHUB_REF#refs/tags/}"
           version="${tag#v}"
 
           # 取远程那个标签来核对，但**不能**取进 refs/tags/ 里：checkout 在标签上检出的，
@@ -154,7 +135,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          tag="${TAG}"
+          tag="${GITHUB_REF#refs/tags/}"
           version="$(node -p 'require("./package.json").version')"
           if gh release view "$tag" >/dev/null 2>&1; then
             echo "${tag} 的 Release 已经存在。"
