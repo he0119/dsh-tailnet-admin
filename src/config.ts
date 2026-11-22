@@ -35,8 +35,9 @@ export const Config = z.object({
   /**
    * 允许免掉浏览器会话校验的 Tailscale 登录名（例如 `alice@example.com`）。
    *
-   * 精确匹配、不区分大小写；空表 = 不碰认证。名单外但带着 `Tailscale-User-Login` 的请求会被拒绝，
-   * 没带这个请求头的访问回落到原来的 token/cookie 校验。
+   * 精确匹配、不区分大小写；空表 = 不碰认证。名单外的访问不会被自动放行，但能拦到什么程度取决于
+   * 宿主版本：0.2.3-alpha.1 之前的宿主能直接拒绝带身份头的请求，之后的新接口只能"不认领"（对方自己
+   * 有有效的登录 cookie 时仍可能被放行）。没带这个请求头的访问在两种版本上都回落到原来的 token/cookie 校验。
    */
   allowedUsers: z.array(String).default([]).volatile(),
 })

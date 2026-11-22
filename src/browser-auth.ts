@@ -16,7 +16,13 @@
  *
  * 幂等：宿主可能在同一个进程里重建/重放插件作用域，`apply` 会跑不止一次（实测启动日志里出现两轮）。
  * 用 WeakMap 记引用计数，重复安装只加计数、重复卸载只减计数，最后一轮卸载才真正还原原型上的方法。
+ *
+ * **这是旧宿主的路径**：0.2.3-alpha.1 起 `connection.browserAuth` 被整个删除，宿主改成
+ * `connection.authentication.register` 的校验器注册（见 connection-auth.ts）。新宿主上本模块
+ * 找不到替换点，会原样返回 undefined，由 index.ts 改走注册那条路。
  */
+
+import { readLoginHeader } from './login-header.ts'
 
 /** 只用到的两个方法：请求是否已通过浏览器认证，以及 API 凭据属于哪个 operator。 */
 export interface BrowserAuthLike {
@@ -57,74 +63,11 @@ interface PatchEntry {
 
 const PATCHES = new WeakMap<BrowserAuthLike, PatchEntry>()
 
-/** tailscale serve 放进去的登录名请求头。HTTP 头名大小写不敏感。 */
-const LOGIN_HEADER = 'tailscale-user-login'
-
-/** 请求里那个头的读取结果：没带、带了但不可用、带了一个可用的登录名。 */
-type LoginHeader =
-  | { readonly state: 'absent' }
-  | { readonly state: 'invalid' }
-  | { readonly state: 'value'; readonly login: string }
-
 /** 形状校验：不是"带 isAuthenticated 方法的对象"就不碰（fail-closed，宁可不动认证）。 */
 function asBrowserAuth(value: unknown): BrowserAuthLike | undefined {
   if (typeof value !== 'object' || value === null) return undefined
   const candidate = value as { isAuthenticated?: unknown }
   return typeof candidate.isAuthenticated === 'function' ? (candidate as BrowserAuthLike) : undefined
-}
-
-/**
- * 把一个头值规整成可以比较的登录名。
- *
- * 转小写（登录名是邮箱，大小写不敏感）、去掉首尾空白。中间带空白或逗号的一律判为不可用：前者不是
- * 合法登录名，后者是重复头被 Node 拼起来的样子；放过去只会让「整串相等」变成一次模棱两可的比较。
- * 非 ASCII 的值 Tailscale 会做 RFC2047 编码，同样对不上任何名单，按不可用处理。
- */
-function normalizeLogin(raw: string): LoginHeader {
-  const login = raw.trim().toLowerCase()
-  if (login === '' || login.includes(',') || !/^[\x21-\x7e]+$/u.test(login)) return { state: 'invalid' }
-  return { state: 'value', login }
-}
-
-/**
- * 从请求里读 `Tailscale-User-Login`。
- *
- * 宿主把这个参数的类型写成 `{ headers: Headers | Record<string, string | string[]> }`，两种都要认：
- * - `Headers`：`get()` 自己处理大小写；
- * - 普通对象（node:http 的 `req.headers`）：键已经小写，但为了别的载体也认原始写法。
- *
- * 数组（重复头）不猜哪一个是真的，按不可用处理。读取本身抛错也算不可用：认证边界上宁可拒绝。
- */
-function readLoginHeader(request: unknown): LoginHeader {
-  if (typeof request !== 'object' || request === null) return { state: 'absent' }
-  const headers = (request as { headers?: unknown }).headers
-  if (headers === null || headers === undefined) return { state: 'absent' }
-
-  if (typeof (headers as { get?: unknown }).get === 'function') {
-    let value: unknown
-    try {
-      value = (headers as { get(name: string): unknown }).get(LOGIN_HEADER)
-    } catch {
-      return { state: 'invalid' }
-    }
-    if (value === null || value === undefined) return { state: 'absent' }
-    return typeof value === 'string' ? normalizeLogin(value) : { state: 'invalid' }
-  }
-
-  if (typeof headers !== 'object') return { state: 'absent' }
-  const record = headers as Record<string, unknown>
-  // 普通对象的键不保证是小写；`_` 与 `-` 也按同一个头处理（Tailscale 自己删入站头时就是这么比的）。
-  // 同时命中多个变体说明有人在拼重复头，不猜哪一个是真的。
-  let raw: unknown
-  let matches = 0
-  for (const key of Object.keys(record)) {
-    if (key.toLowerCase().replaceAll('_', '-') !== LOGIN_HEADER) continue
-    raw = record[key]
-    matches += 1
-  }
-  if (matches === 0 || raw === undefined) return { state: 'absent' }
-  if (matches > 1) return { state: 'invalid' }
-  return typeof raw === 'string' ? normalizeLogin(raw) : { state: 'invalid' }
 }
 
 /**

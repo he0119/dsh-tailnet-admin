@@ -11,8 +11,10 @@ Status: implemented
 
 ## Decision
 
-把「关掉浏览器会话校验」换成 `allowedUsers` 名单，默认空表（= 不做事）。名单非空时，把
-`connection.browserAuth.isAuthenticated` 换成：
+把「关掉浏览器会话校验」换成 `allowedUsers` 名单，默认空表（= 不做事）。名单非空时，宿主换过两代接口，
+插件按运行中的宿主二选一。
+
+**0.2.2-rc.x 及更早（旧接口）**——把 `connection.browserAuth.isAuthenticated` 换成：
 
 - 请求带 `Tailscale-User-Login`：转小写后与名单整串比较，命中放行；
 - 带了但不在名单里（或头值不可用）：拒绝；
@@ -21,9 +23,15 @@ Status: implemented
 `authenticateApi` 存在时按同一份名单包装：名单外的 API 凭据同样拿不到 `PeerId`。名单内但带着 API
 凭据的请求，`isAuthenticated` 会让位给 `authenticateApi` —— `admit` 先问前者、再问后者，如果前者对
 API 请求也答 true，`admit` 会把它降级成共享的 `browserPeer`，operator 身份与交互声明一起丢掉。
-替换点仍然只在认证这一层，Host/Origin 栅栏与 `isTrustedApiRequest` / `trustedHosts` 没动。这条决策取代
+
+**0.2.3-alpha.1 起（新接口）**——宿主删掉了 `browserAuth`，改成
+`ctx.connection.authentication.register(provider)`：插件交一个校验器，`admit` 按注册顺序问，第一个
+返回 Peer 的算数。插件启动时用 `connection.createPeer({ principal: { kind: 'owner' } })` 建一个共享的
+owner Peer，名单内的请求返回它，其余返回 `undefined` 让下一个校验器继续问。
+
+两条路都只在认证这一层，Host/Origin 栅栏与 `isTrustedApiRequest` / `trustedHosts` 没动。这条决策取代
 [只替换 isAuthenticated，不拆栅栏](2026-09-30-only-isauthenticated-is-replaced.md) 里「替换成常量
-`true`」的那一半。
+`true`」的那一半，也把那条记录里「替换点始终在 isAuthenticated」的后半句改成了按宿主任选一条。
 
 Tailscale 的 [Serve 身份头](https://tailscale.com/docs/features/tailscale-serve#identity-headers) 说清了两件
 事：头是 serve 加的，而且 serve 会先删掉入站请求里的同名头。插件依赖的正是这两条。
@@ -32,9 +40,20 @@ Tailscale 的 [Serve 身份头](https://tailscale.com/docs/features/tailscale-se
 
 - 头名 `Tailscale-User-Login`，值按小写比较（登录名是邮箱，大小写不敏感）。
 - 只做整串相等。没有通配符、后缀、正则、显示名；`Tailscale-User-Name` 不参与判断，因为它不是唯一标识。
-- 空串、数组（重复头）、同一个头出现多个大小写/下划线变体、含逗号 / 空白 / 非 ASCII 的值判为不可用并
-  拒绝。这些值对不上任何登录名，猜一个只会让判断变得模棱两可。
+- 空串、数组（重复头）、同一个头出现多个大小写/下划线变体、含逗号 / 空白 / 非 ASCII 的值判为不可用
+  （旧接口拒绝，新接口只是不认领）。这些值对不上任何登录名，猜一个只会让判断变得模棱两可。
 - 名单每次请求现读 volatile 引用，改配置不重装、不重启。
+
+## 两条接口的差别
+
+- **新接口不能否决。** 旧接口能直接答 false 把人挡在门外；新接口只能"不认领"，名单外的人如果自己有
+  有效的登录 cookie，仍可能被令牌插件放进来。这是宿主的接口形状，不是插件退让。
+- **注册顺序有意义。** 带 API 凭据的请求应当在令牌校验器那里被认领（它认得凭据，会给出带 RemoteAccess
+  的 Peer）。插件在 profile 补丁里排在 web bundle 之后加载，因此注册在令牌之后；顺序反过来时，一个带
+  API 凭据、又带身份头的请求会被这里当成 owner。
+- **头值不可用的结局也跟着变。** 旧接口把重复头、空串、非 ASCII 当作拒绝；新接口只能不认领，最终由
+  其它校验器决定。
+- 名单匹配规则本身没变：转小写、整串相等、每请求现读。
 
 ## 部署前提
 
@@ -61,13 +80,20 @@ tagged device 与同一台机器上的本地进程都不在 ACL 的「用户」�
 **用来源 IP / `remoteAddress` 判断。** 宿主传给 `isAuthenticated` 的只有 `headers`
 （`ConnectionTrustRequest` 只声明了这一面），拿不到可靠的来源地址；就算拿得到，本机进程也永远是回环。
 
+**只保留旧接口。** 新宿主上 `browserAuth` 已经不存在，这段代码会静默不装；名单里的人会停在登录页。
+
+**用抛错表示拒绝。** `authenticate` 抛错会让 `admit` 记一次失败；如果其它校验器都没认领，结果是 503
+（服务故障），不是"这个人被拒绝"——还会把本来能进的人挡成故障。
+
 ## Consequences
 
-- 收益从「谁都能进」收窄成「名单里的人能进」；代价是名单外的人即使有 token，也会被带身份头的请求挡下，
-  以及要维护一份登录名。
+- 收益从「谁都能进」收窄成「名单里的人能进」；代价是要维护一份登录名。
+- 旧宿主上名单外的人即使有 token，也会被带身份头的请求挡下；0.2.3-alpha.1 起没有这道否决，他们只是
+  不会被自动放行，最终由宿主的令牌校验决定。
 - 没带身份头的访问仍然走原 token 校验，所以回环调试、Funnel、tagged device 不会因为插件而锁死。
 - 本机是 tagged device 时（作者的服务器就是），从它自己发起的请求没有身份头；这不影响浏览器里的用户
   设备，但用 curl 在本机验证时走的是回落路径。
 - 旧配置里的 `disableBrowserAuth: true` 会被 schema 静默忽略，效果是恢复认证；升级说明写在 README。
-- 只包装 `isAuthenticated` / `authenticateApi`；`/connect` 的启动 token 交换仍然只认 token。拿到启动
-  token 的人仍能换到 API 凭据，但凭据随后在名单外会被 `authenticateApi` 拦下。
+- 旧接口上只包装 `isAuthenticated` / `authenticateApi`；`/connect` 的启动 token 交换仍然只认 token。
+  拿到启动 token 的人仍能换到 API 凭据，但凭据随后在名单外会被 `authenticateApi` 拦下。新接口上这条
+  由注册顺序保证：带 API 凭据的请求先被令牌校验器认领。

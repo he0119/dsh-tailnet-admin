@@ -25,7 +25,7 @@
 
 **② 免掉每次换 token，但只放行指定的人**
 
-- [只替换 isAuthenticated，不拆栅栏](../.agents/notes/implemented/architecture/2026-09-30-only-isauthenticated-is-replaced.md)：
+- [只换认证那一层，不拆栅栏](../.agents/notes/implemented/architecture/2026-09-30-only-isauthenticated-is-replaced.md)：
   替换点留在认证这一层，栅栏不动的结论仍然成立。
 - [认证旁路改成 Tailscale 用户白名单](../.agents/notes/implemented/architecture/2026-11-12-tailscale-user-allowlist.md)：
   读 `Tailscale-User-Login`，名单内放行、名单外拒绝、没带头回落 token。

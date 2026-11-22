@@ -8,10 +8,12 @@
  *    `location.hostname` 是否回环，因此这一行决定了设置页（模型目录、凭据、配置文件编辑器）在
  *    非回环地址上能不能用。
  *
- * ② `allowedUsers`：把宿主 `connection.browserAuth.isAuthenticated` 换成「只放行名单里的
- *    `Tailscale-User-Login`」。名单外但带着身份头的请求直接拒绝，没带身份头的访问回落到原来的
- *    token/cookie 校验。**Host/Origin 栅栏不在其中**——它仍然只认回环或 `--trusted-host` 声明过的
- *    authority。
+ * ② `allowedUsers`：把「这个请求代表谁」换成「只放行名单里的 `Tailscale-User-Login`」。宿主换过接口，
+ *    这里跟着分两条路：0.2.3-alpha.1 起用 `connection.authentication.register` 注册校验器（新路径），
+ *    更早的版本改 `connection.browserAuth.isAuthenticated`（旧路径）。没带身份头的访问在两条路上都
+ *    回落到原来的 token/cookie 校验。**Host/Origin 栅栏不在其中**——它仍然只认回环或
+ *    `--trusted-host` 声明过的 authority。两条路的能力差别（新接口不能否决，只能不认领）写在
+ *    connection-auth.ts 的开头。
  *
  * 为什么②默认关闭：这一改，名单里的人打开页面就等于拿到了这台机器的控制权。而且这份名单只有在请求
  * 确实经过 tailscale serve、DSH 只监听回环地址时才可靠。理由与代价写在 docs/internals.md 的决策地图里，
@@ -24,9 +26,10 @@
  */
 import type { IndexInjection } from '@deepseek-ai/dsh-host-webserver'
 
-import { type AuthPatch, type ConnectionLike, restrictBrowserAuth } from './browser-auth.ts'
+import { restrictBrowserAuth } from './browser-auth.ts'
 import { Config, type PluginConfig } from './config.ts'
-import type { ConnectionContext, HostContext } from './host.ts'
+import { registerConnectionAuthentication, type ConnectionAuthenticationLike } from './connection-auth.ts'
+import type { ConnectionContext, HostConnection, HostContext } from './host.ts'
 import { resolveOptions } from './options.ts'
 import { buildPageScript } from './page-hosts.ts'
 
@@ -69,12 +72,27 @@ function installPageScript(ctx: HostContext, config: PluginConfig | undefined): 
   })
 }
 
+/** 已经装上的那一层：两条路只能选一条，撤销时各按自己的方式还原。 */
+interface Admission {
+  readonly mode: 'provider' | 'legacy'
+  restore(): void
+}
+
 /**
- * 安装按 Tailscale 身份放行的替换。
+ * 安装按 Tailscale 身份放行的那一层。
  *
  * 放在 `ctx.inject` 里而不是 `apply` 的第一行：`connection` 服务由另一个插件提供，加载顺序不保证；
- * inject 会在它可用时回调。回调可能被执行不止一次（服务重建会重放），因此真正的幂等由
- * browser-auth.ts 的引用计数负责，这里只是"每次回调都重新拿一次当前的服务"。
+ * inject 会在它可用时回调。回调可能被执行不止一次（服务重建会重放），因此真正的幂等由两条路各自的
+ * 引用计数负责，这里只是"每次回调都重新拿一次当前的服务"。
+ *
+ * 两条路的取舍：新宿主（0.2.3-alpha.1 起）删掉了 `browserAuth`，只剩校验器注册；旧宿主没有
+ * `connection.authentication`。因此先看新接口在不在，再回落到旧接口——反过来会把新宿主上一份
+ * 装不上的旧路径当成"已经装了"。
+ *
+ * 新接口用 `ctx.get('connection.authentication')` 探测，而不是直接读 `connection.authentication`：
+ * Cordis 4.2 起，未在 `inject` 里声明的嵌套服务属性会在读取时抛
+ * `cannot get property "connection.authentication" without inject`。把新服务写进 `inject` 也不行——
+ * 旧宿主上它永远不会出现，回调不会触发，旧路径就再也没机会装。`get` 本来就是给可选服务准备的读法。
  *
  * `sync()` 是唯一的写入口，三处调用它：拿到 connection 时（此时名单可能已经非空）、配置更新时、
  * 以及作用域销毁时反过来还原。名单为空就是"不做事"：没有安装就什么都不用做，装过就还回去。
@@ -83,44 +101,66 @@ function installPageScript(ctx: HostContext, config: PluginConfig | undefined): 
  * @param config - loader 传入的配置。
  */
 function installUserAllowlist(ctx: HostContext, config: PluginConfig | undefined): void {
-  let connection: ConnectionLike | undefined
-  let patch: AuthPatch | undefined
+  let connection: HostConnection | undefined
+  let authentication: ConnectionAuthenticationLike | undefined
+  let admission: Admission | undefined
 
   const sync = (): void => {
     const allowedUsers = resolveOptions(config).allowedUsers
-    if (allowedUsers.length > 0) {
-      if (patch !== undefined) return
-      const next = restrictBrowserAuth(connection, {
-        // 每次请求现读：名单改了不必卸载重装，引用计数也不会漂移。
-        allowedUsers: () => resolveOptions(config).allowedUsers,
-        onDenied: (login) => {
-          log(`拒绝了不在 allowedUsers 里的 Tailscale 用户：${login}（要放行就把这个登录名加进 allowedUsers）`)
-        },
-      })
-      if (next === undefined) {
-        log('没拿到 connection.browserAuth（形状不符或服务缺失）：认证保持原样')
-        return
-      }
-      patch = next
-      log(next.patched
-        ? `已只允许这些 Tailscale 用户免掉浏览器会话校验：${listText(allowedUsers)}（Host/Origin 栅栏仍在）；清空 allowedUsers 即可即时恢复`
-        : '浏览器会话校验此前已由本插件按名单替换过，这次只加了引用计数')
+    if (allowedUsers.length === 0) {
+      if (admission === undefined) return
+      const mode = admission.mode
+      admission.restore()
+      admission = undefined
+      log(mode === 'provider' ? '已撤销连接鉴权注册' : '已恢复浏览器会话校验')
       return
     }
-    if (patch === undefined) return
-    patch.restore()
-    patch = undefined
-    log('已恢复浏览器会话校验')
+    if (admission !== undefined || connection === undefined) return
+
+    const options = {
+      // 每次请求现读：名单改了不必卸载重装，引用计数也不会漂移。
+      allowedUsers: () => resolveOptions(config).allowedUsers,
+      onDenied: (login: string) => {
+        log(`拒绝了不在 allowedUsers 里的 Tailscale 用户：${login}（要放行就把这个登录名加进 allowedUsers）`)
+      },
+      onNotAllowed: (login: string) => {
+        log(`没有自动放行不在 allowedUsers 里的 Tailscale 用户：${login}（要放行就把这个登录名加进 allowedUsers）`)
+      },
+    }
+
+    if (authentication !== undefined) {
+      const handle = registerConnectionAuthentication(connection, authentication, options)
+      if (handle === undefined) {
+        log('connection.authentication 形状不符（缺 register 或 createPeer）：认证保持原样')
+        return
+      }
+      admission = { mode: 'provider', restore: handle.restore }
+      log(`已注册连接鉴权：${listText(allowedUsers)} 里的用户直接接入；名单外不再主动拒绝（Host/Origin 栅栏仍在）；清空 allowedUsers 即可即时撤销`)
+      return
+    }
+
+    const patch = restrictBrowserAuth(connection, options)
+    if (patch === undefined) {
+      log('没拿到 connection.browserAuth（形状不符或服务缺失）：认证保持原样')
+      return
+    }
+    admission = { mode: 'legacy', restore: patch.restore }
+    log(patch.patched
+      ? `已只允许这些 Tailscale 用户免掉浏览器会话校验：${listText(allowedUsers)}（Host/Origin 栅栏仍在）；清空 allowedUsers 即可即时恢复`
+      : '浏览器会话校验此前已由本插件按名单替换过，这次只加了引用计数')
   }
 
   ctx.inject(['connection'], (connectionCtx: ConnectionContext) => {
     connection = connectionCtx.connection
+    // 可选服务：新宿主有、旧宿主没有。直接读嵌套属性会被 Cordis 4.2 拦下（见上面的说明）。
+    authentication = connectionCtx.get?.('connection.authentication') as ConnectionAuthenticationLike | undefined
     sync()
     connectionCtx.effect?.(() => () => {
-      patch?.restore()
-      patch = undefined
+      admission?.restore()
+      admission = undefined
       connection = undefined
-    }, 'dsh-tailnet-admin: restore browser auth')
+      authentication = undefined
+    }, 'dsh-tailnet-admin: restore login admission')
   })
 
   ctx.on('loader/volatile-update', () => {
@@ -128,7 +168,7 @@ function installUserAllowlist(ctx: HostContext, config: PluginConfig | undefined
   })
 
   if (resolveOptions(config).allowedUsers.length === 0) {
-    log('allowedUsers 为空：不碰浏览器会话校验（仍要求 ?token= 换来的 cookie）')
+    log('allowedUsers 为空：不碰登录校验（仍要求 ?token= 换来的 cookie）')
   }
 }
 

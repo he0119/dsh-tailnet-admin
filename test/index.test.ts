@@ -15,8 +15,17 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
+import type { HostConnection } from '../src/host.ts'
 import { apply } from '../src/index.ts'
-import { asPluginConfig, createConfig, createFakeAuth, createFakeHost, loginRequest } from './helpers.ts'
+import {
+  asPluginConfig,
+  createAdmissionConnection,
+  createConfig,
+  createFakeAuth,
+  createFakeAuthentication,
+  createFakeHost,
+  loginRequest,
+} from './helpers.ts'
 
 const ALICE = 'alice@example.com'
 const BOB = 'bob@example.com'
@@ -157,3 +166,84 @@ test('connection 形状不对时不碰认证，且之后名单打开也保持原
   host.emitVolatile([['allowedUsers']])
   assert.equal(host.connection.browserAuth, undefined, '没有 browserAuth 就没有可替换的东西')
 })
+
+test('新宿主：注册连接鉴权校验器，不再碰 browserAuth', () => {
+  const auth = createFakeAuth()
+  const connection = createAdmissionConnection()
+  connection.browserAuth = auth
+  const host = createFakeHost({ connection })
+  apply(host.ctx, asPluginConfig(createConfig({ allowedUsers: [ALICE] })))
+  host.provideConnection()
+
+  assert.equal(connection.authentication.providers.length, 1, '挂了一个校验器')
+  assert.equal(connection.peers.length, 1, '只建一个 owner Peer')
+  assert.equal(auth.calls, 0, '有 authentication 时不该再碰 browserAuth')
+
+  const provider = connection.authentication.providers[0]
+  assert.ok(provider !== undefined)
+  assert.equal(provider.authenticate(loginRequest(ALICE)), connection.peers[0], '名单里的用户拿到 Peer')
+  assert.equal(provider.authenticate(loginRequest(BOB)), undefined, '名单外只是不认领')
+  assert.equal(provider.authenticate({ headers: {} }), undefined, '没带头不认领')
+
+  host.dispose()
+  assert.equal(connection.authentication.providers.length, 0, '销毁后撤销注册')
+})
+
+test('新宿主：名单空→不装、置非空→装、清空→撤、再装回来', () => {
+  const connection = createAdmissionConnection()
+  const config = createConfig()
+  const host = createFakeHost({ connection })
+  apply(host.ctx, asPluginConfig(config))
+  host.provideConnection()
+  assert.equal(connection.authentication.providers.length, 0, '默认空名单不注册')
+
+  config.allowedUsers.set([ALICE])
+  host.emitVolatile([['allowedUsers']])
+  assert.equal(connection.authentication.providers.length, 1, '置为非空之后即时注册')
+  const provider = connection.authentication.providers[0]
+  assert.ok(provider !== undefined)
+  assert.equal(provider.authenticate(loginRequest(ALICE)), connection.peers[0])
+  assert.equal(provider.authenticate(loginRequest(BOB)), undefined)
+
+  config.allowedUsers.set([])
+  host.emitVolatile([['allowedUsers']])
+  assert.equal(connection.authentication.providers.length, 0, '清空即撤销')
+  assert.equal(connection.authentication.revoked, 1)
+
+  config.allowedUsers.set([BOB])
+  host.emitVolatile([['allowedUsers']])
+  assert.equal(connection.authentication.providers.length, 1, '还能再装一次（引用计数没有泄漏）')
+  const again = connection.authentication.providers[0]
+  assert.ok(again !== undefined)
+  assert.equal(again.authenticate(loginRequest(BOB)) !== undefined, true, '新名单生效')
+
+  host.dispose()
+  assert.equal(connection.authentication.providers.length, 0, '销毁后撤销')
+})
+
+test('新宿主：服务重放只注册一次，销毁后撤销', () => {
+  const connection = createAdmissionConnection()
+  const host = createFakeHost({ connection })
+  apply(host.ctx, asPluginConfig(createConfig({ allowedUsers: [ALICE] })))
+  host.provideConnection()
+  host.provideConnection()
+
+  assert.equal(connection.authentication.providers.length, 1, '两轮 inject 只挂一个校验器')
+  assert.equal(host.restorers.length, 2, '两轮各登记一个清理函数')
+
+  host.dispose()
+  assert.equal(connection.authentication.providers.length, 0, '两轮都清理后撤销')
+})
+
+test('新宿主接口缺 createPeer：不注册，也不回落到旧接口', () => {
+  const auth = createFakeAuth()
+  const authentication = createFakeAuthentication()
+  const connection = { authentication, browserAuth: auth } as HostConnection
+  const host = createFakeHost({ connection })
+  apply(host.ctx, asPluginConfig(createConfig({ allowedUsers: [ALICE] })))
+  host.provideConnection()
+
+  assert.equal(authentication.providers.length, 0, '缺 createPeer 时不注册')
+  assert.equal(auth.calls, 0, '新宿主上不该再去改 browserAuth')
+})
+

@@ -101,7 +101,8 @@ Press **Save**. `allowedUsers` takes effect immediately, `pageHosts` applies to 
 
 The login name is your user account in the Tailscale admin console (usually an email), not a device or display
 name. When the plugin refuses someone it writes the real login name to the log
-(`[dsh-tailnet-admin] 拒绝了不在 allowedUsers 里的 Tailscale 用户：…`); copy that line.
+(on older hosts `[dsh-tailnet-admin] 拒绝了不在 allowedUsers 里的…`, from `0.2.3-alpha.1` on
+`[dsh-tailnet-admin] 没有自动放行不在 allowedUsers 里的…`); copy that line.
 
 > The default `.ts.net` already covers common Tailnet domains, so a page opened from `*.ts.net` can save these
 > settings on the first visit — no loopback detour. Only when the page host is not under `.ts.net` (a custom
@@ -166,9 +167,14 @@ ExecStart=%h/.npm/_npx/<hash>/node_modules/.bin/dsh web --host 127.0.0.1 --port 
 
 - **A listed user** who opens the page gains control of the machine — read and write files, run commands, use the
   API keys you configured in DSH. Keep the list short: only people who really need remote admin on this machine.
-- **Anyone else on the tailnet**: a request carrying `Tailscale-User-Login` is refused, even if the caller still
-  holds a cookie from earlier. Requests without that header (no tailscale serve, Funnel, tagged devices) fall
-  back to the original token check; the plugin never treats a header-less request as authenticated.
+- **Anyone else on the tailnet** is not admitted automatically, with one version-dependent difference:
+  - Before `0.2.3-alpha.1`: a request carrying `Tailscale-User-Login` is refused outright, even if the caller
+    still holds a cookie from earlier.
+  - From `0.2.3-alpha.1`: the host switched to a registered-verifier API, so the plugin can decline but cannot
+    veto; a caller with a valid login cookie of their own may still be admitted by the host's token verifier.
+  The plugin picks the right path for the running host; there is no switch.
+  Requests without that header (no tailscale serve, Funnel, tagged devices) fall back to the original token check
+  on both versions; the plugin never treats a header-less request as authenticated.
 - **DSH must listen on loopback only.** The whole decision rests on "`Tailscale-User-Login` was added by
   tailscale serve". [Tailscale's own docs require the backend to listen on localhost](https://tailscale.com/docs/features/tailscale-serve#identity-headers); otherwise anyone who can
   reach the port directly can write that header themselves. `dsh web` listens on `127.0.0.1` by default — do not
@@ -184,6 +190,10 @@ ExecStart=%h/.npm/_npx/<hash>/node_modules/.bin/dsh web --host 127.0.0.1 --port 
 - `pageHosts`, by contrast, only affects **browser-side** settings persistence and UI availability. It changes no
   server-side decision. The `.ts.net` default follows from the plugin's scope, not from an authentication choice;
   clear the list on the config page if you want no injection at all.
+
+> Host versions: from `0.2.3-alpha.1` the host switched to a registered-verifier API, and the plugin picks the
+> right path for the running host with no configuration; older versions keep the `browserAuth` replacement. The
+> difference is described under "Anyone else on the tailnet" above.
 
 Suggested posture: leave `pageHosts` at `.ts.net` and add a custom domain only when needed; put only your own
 login name in `allowedUsers`, never "everyone on the tailnet". To revert authentication, clear the list on the
@@ -204,7 +214,7 @@ load. There is no state to clean up.
 | Do not want injection on any page | Clear the page hosts on the config page and save (an explicit empty array); deleting the setting falls back to `.ts.net` |
 | Requests fail with 403 | The Host/Origin fence rejected them: add `--trusted-host <authority>` to `dsh web` |
 | Still asked for `?token=` | `allowedUsers` is empty; the current user's login name is not listed; or the request did not come through tailscale serve (tagged device, Funnel, direct connection), so there is no `Tailscale-User-Login` |
-| A listed user is refused too | The login name is wrong (a display name or device name), or the request did not come through tailscale serve; the log line "拒绝了不在 allowedUsers 里的 Tailscale 用户：…" shows the real login name |
+| A listed user is refused too | The login name is wrong (a display name or device name), or the request did not come through tailscale serve; the log line "拒绝了…" (older hosts) or "没有自动放行…" (from 0.2.3-alpha.1) shows the real login name |
 | No `[dsh-tailnet-admin]` line in the startup log | The name is missing from `dsh.profile.bundles`, or the package is not installed (check with `dsh --profile web --dump-config \| grep tailnet-admin`) |
 | The config page says "this browser only" and the profile does not change | The current page is not treated as this machine: open DSH over loopback once, or edit `cordis.patch.yml` directly |
 | The config page says the section cannot be read | The `id` of that `cordis.patch.yml` row is not `tailnet-admin`, or the row is not enabled |
