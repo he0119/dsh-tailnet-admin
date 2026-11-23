@@ -54,8 +54,9 @@ interface Admission {
  * 两个依赖都写进 inject：`connection.authentication` 是连接插件挂的嵌套服务，Cordis 4.2 起未声明的
  * 属性读取会直接抛 `cannot get property ... without inject`，不能只按属性链读。
  *
- * `sync()` 是唯一的写入口，三处调用它：拿到 connection 时（此时名单可能已经非空）、配置更新时、
- * 以及作用域销毁时反过来还原。名单为空就是"不做事"：没有安装就什么都不用做，装过就还回去。
+ * `sync()` 是唯一的写入口，两处调用它：拿到 connection 时（此时名单可能已经非空）与配置更新时；
+ * 作用域销毁由 inject 回调里登记的清理函数直接还原。名单为空就是"不做事"：没有安装就什么都不用做，
+ * 装过就还回去。
  *
  * @param ctx - 插件自己的上下文（`loader/volatile-update` 只发给这一层）。
  * @param config - loader 传入的配置。
@@ -107,7 +108,7 @@ function installUserAllowlist(ctx: HostContext, config: PluginConfig | undefined
   })
 
   if (resolveOptions(config).allowedUsers.length === 0) {
-    log('allowedUsers 为空：不碰登录校验（仍要求 ?token= 换来的 cookie）')
+    log('allowedUsers 为空：不碰登录校验（仍要求先登录）')
   }
 }
 

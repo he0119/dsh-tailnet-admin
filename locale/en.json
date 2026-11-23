@@ -1,6 +1,6 @@
 {
   "meta": {
     "title": "Tailnet Admin",
-    "description": "Let named Tailscale users into the DSH UI from the tailnet without carrying a token."
+    "description": "Sign in to DSH with your Tailscale account, no token needed."
   }
 }

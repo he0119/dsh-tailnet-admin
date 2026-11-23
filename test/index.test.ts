@@ -27,7 +27,7 @@ import {
 const ALICE = 'alice@example.com'
 const BOB = 'bob@example.com'
 
-test('默认配置：不注册校验器，也不订阅页面注入', () => {
+test('默认配置：不注册校验器', () => {
   const connection = createAdmissionConnection()
   const host = createFakeHost({ connection })
   apply(host.ctx, asPluginConfig(createConfig()))

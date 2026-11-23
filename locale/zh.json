@@ -1,6 +1,6 @@
 {
   "meta": {
     "title": "Tailnet 管理",
-    "description": "从 Tailnet 打开 DSH 时，按 Tailscale 登录名放行已登录的浏览器，不用每次换 token。"
+    "description": "用 Tailscale 账号登录 DSH，不需要 token。"
   }
 }

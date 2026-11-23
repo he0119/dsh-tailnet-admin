@@ -17,8 +17,8 @@ export const NS = 'settings.tailnetAdmin'
 export const zh = {
   configTitle: '配置',
   configNote: '改完点保存，立即生效，不用重启',
-  allowedUsersLabel: '不用 token 的 Tailscale 用户',
-  allowedUsersHint: '一行一个 Tailscale 登录名，比如 alice@example.com（不是设备名）。只对经过 tailscale serve 的访问生效；留空 = 不启用。',
+  allowedUsersLabel: 'Tailscale 用户',
+  allowedUsersHint: '一行一个登录名，比如 alice@example.com（不是设备名）。只对经过 tailscale serve 的访问生效；留空 = 不启用。',
   allowedUsersInvalid: '这些写法匹配不到任何账号。写完整的 Tailscale 登录名，不要写显示名、空格、逗号或通配符。',
   allowedUsersPlaceholder: 'alice@example.com',
   allowedUsersWarning: '名单里的人打开页面就能操作这台机器：读写文件、执行命令、用你的 API key。只填信任的账号；DSH 必须只监听 127.0.0.1，否则登录名可以被伪造。',
@@ -34,8 +34,8 @@ export const zh = {
 export const en: Record<keyof typeof zh, string> = {
   configTitle: 'Configuration',
   configNote: 'Save applies changes immediately; no restart needed',
-  allowedUsersLabel: 'Tailscale users without a token',
-  allowedUsersHint: 'One Tailscale login per line, for example alice@example.com (not a device name). Only requests through tailscale serve are affected. Save an empty box to turn this off.',
+  allowedUsersLabel: 'Tailscale users',
+  allowedUsersHint: 'One login per line, for example alice@example.com (not a device name). Only requests through tailscale serve are affected. Save an empty box to turn this off.',
   allowedUsersInvalid: 'These cannot match any user. Write the full Tailscale login name; no display names, spaces, commas, or wildcards.',
   allowedUsersPlaceholder: 'alice@example.com',
   allowedUsersWarning: 'Anyone on this list can control this machine once they open the page: read and write files, run commands, and use your API keys. Only add people you trust. DSH must listen on 127.0.0.1 only, or the login name can be forged.',

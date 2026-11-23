@@ -11,7 +11,7 @@ requestRejection = isTrustedApiRequest(host, trustedHosts)   // Host/Origin 栅�
                  + browserAuth.isAuthenticated(request)      // 浏览器会话认证
 ```
 
-要免掉「每次换 token」，可以换掉整个 `requestRejection`，也可以只换后一半。
+要免掉「用 token 登录」，可以换掉整个 `requestRejection`，也可以只换后一半。
 
 ## Decision
 
