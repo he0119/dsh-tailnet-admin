@@ -35,8 +35,9 @@ export const Config = z.object({
   /**
    * 允许免掉浏览器会话校验的 Tailscale 登录名（例如 `alice@example.com`）。
    *
-   * 精确匹配、不区分大小写；空表 = 不碰认证。名单外但带着 `Tailscale-User-Login` 的请求会被拒绝，
-   * 没带这个请求头的访问回落到原来的 token/cookie 校验。
+   * 精确匹配、不区分大小写；空表 = 不碰认证。名单外的访问不会被自动放行，但校验器只能"不认领"、
+   * 不能否决：对方自己有有效的登录 cookie 时仍可能被放行。没带这个
+   * 请求头的访问回落到原来的 token/cookie 校验。
    */
   allowedUsers: z.array(String).default([]).volatile(),
 })

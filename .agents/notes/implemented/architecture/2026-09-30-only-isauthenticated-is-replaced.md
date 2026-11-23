@@ -36,5 +36,5 @@ requestRejection = isTrustedApiRequest(host, trustedHosts)   // Host/Origin 栅�
   可以放宽。
 
 > 后续：本记录里「换成常量 `true`」的那一半已被
-> [认证旁路改成 Tailscale 用户白名单](2026-11-12-tailscale-user-allowlist.md) 取代；替换点仍在
-> `isAuthenticated` 这一层、栅栏不动的结论不变。
+> [认证旁路改成 Tailscale 用户白名单](2026-11-12-tailscale-user-allowlist.md) 取代；**栅栏不动的结论
+> 始终不变**。

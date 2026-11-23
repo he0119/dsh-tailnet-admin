@@ -1,9 +1,9 @@
 import type { VolatileSnapshot } from '@deepseek-ai/cordis'
 import type { IndexInjection } from '@deepseek-ai/dsh-host-webserver'
 
-import type { BrowserAuthLike, ConnectionLike } from '../src/browser-auth.ts'
 import type { PluginConfig } from '../src/config.ts'
-import type { ConnectionContext, HostContext } from '../src/host.ts'
+import type { AuthenticationProviderLike, ConnectionAuthenticationLike } from '../src/connection-auth.ts'
+import type { ConnectionContext, HostConnection, HostContext } from '../src/host.ts'
 
 /**
  * 只用得着三面的假宿主。
@@ -14,7 +14,7 @@ import type { ConnectionContext, HostContext } from '../src/host.ts'
  */
 export interface FakeHost {
   readonly ctx: HostContext
-  readonly connection: ConnectionLike
+  readonly connection: HostConnection
   /** effect 注册的清理函数，按注册顺序。 */
   readonly restorers: (() => void)[]
   /** 订阅过的宿主事件名，按首次订阅顺序。用来核"订阅挂在插件自己的 ctx 上"。 */
@@ -33,11 +33,11 @@ export interface FakeHost {
 type AnyListener = (...args: any[]) => void
 
 /** 造一个假宿主。 */
-export function createFakeHost(options: { connection?: ConnectionLike } = {}): FakeHost {
+export function createFakeHost(options: { connection?: HostConnection } = {}): FakeHost {
   const listeners = new Map<string, AnyListener[]>()
   const callbacks: ((ctx: ConnectionContext) => unknown)[] = []
   const restorers: (() => void)[] = []
-  const connection: ConnectionLike = options.connection ?? {}
+  const connection: HostConnection = options.connection ?? {}
 
   const ctx: HostContext = {
     on(event: string, listener: AnyListener): unknown {
@@ -124,7 +124,7 @@ export function createConfig(initial: { pageHosts?: string[]; allowedUsers?: str
   }
 }
 
-/** 造一个带着 Tailscale 登录名的请求：形状与宿主传给 `isAuthenticated` 的一致。 */
+/** 造一个带着 Tailscale 登录名的请求：形状与宿主传给校验器的 `ConnectionTrustRequest` 一致。 */
 export function loginRequest(login: string): { headers: Record<string, string> } {
   return { headers: { 'tailscale-user-login': login } }
 }
@@ -132,25 +132,54 @@ export function loginRequest(login: string): { headers: Record<string, string> }
 /** 假配置与 `PluginConfig` 的关系：引用面一致，因此能直接递给 `apply`。 */
 export const asPluginConfig = (config: FakeConfig): PluginConfig => config as PluginConfig
 
-/** 假的浏览器认证：记录被问了几次、最后一次的参数，答案默认为"没通过"。 */
-export interface FakeAuth extends BrowserAuthLike {
-  calls: number
-  lastRequest: unknown
-  lastSecure: boolean | undefined
+/** 假的 connection.authentication：记录注册了哪些校验器、撤销过几次。 */
+export interface FakeAuthentication extends ConnectionAuthenticationLike {
+  readonly providers: AuthenticationProviderLike[]
+  /** 撤销函数被调用的次数（重复撤销也算）。 */
+  readonly revoked: number
 }
 
-/** 造一个假认证。 */
-export function createFakeAuth(initial: { authenticated?: boolean } = {}): FakeAuth {
-  const auth: FakeAuth = {
-    calls: 0,
-    lastRequest: undefined,
-    lastSecure: undefined,
-    isAuthenticated(request: unknown, secure?: boolean): boolean {
-      auth.calls += 1
-      auth.lastRequest = request
-      auth.lastSecure = secure
-      return initial.authenticated ?? false
+/** 造一个假的连接鉴权注册表。 */
+export function createFakeAuthentication(): FakeAuthentication {
+  const providers: AuthenticationProviderLike[] = []
+  let revoked = 0
+  return {
+    providers,
+    get revoked(): number {
+      return revoked
+    },
+    register(provider: AuthenticationProviderLike): () => Promise<void> {
+      providers.push(provider)
+      return async (): Promise<void> => {
+        revoked += 1
+        const index = providers.indexOf(provider)
+        if (index !== -1) providers.splice(index, 1)
+      }
     },
   }
-  return auth
 }
+
+/** 带新接口的假 connection：authentication + createPeer，并记下建过的 Peer。 */
+export interface FakeAdmissionConnection extends HostConnection {
+  readonly authentication: FakeAuthentication
+  /** createPeer 建出来的 Peer，按调用顺序。 */
+  readonly peers: { readonly principal: { readonly kind: string }; readonly id: string }[]
+}
+
+/** 造一个走新接口的假 connection。 */
+export function createAdmissionConnection(
+  options: { authentication?: FakeAuthentication } = {},
+): FakeAdmissionConnection {
+  const authentication = options.authentication ?? createFakeAuthentication()
+  const peers: { principal: { kind: string }; id: string }[] = []
+  return {
+    authentication,
+    peers,
+    createPeer({ principal }: { principal: { kind: 'owner' } }): unknown {
+      const peer = { principal, id: `peer-${peers.length + 1}` }
+      peers.push(peer)
+      return peer
+    },
+  }
+}
+

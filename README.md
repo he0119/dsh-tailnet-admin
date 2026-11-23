@@ -89,9 +89,8 @@ npx @deepseek-ai/dsh plugin --profile web add link:/path/to/dsh-tailnet-admin
 改完点**保存**。`allowedUsers` 立刻生效，`pageHosts` 在**下一次打开页面**时生效（刷新一次即可），
 两者都不需要重启 DSH。
 
-登录名就是 Tailscale 管理后台里你的用户账号（通常是邮箱），不是设备名或显示名。插件拒绝某个用户时会把
-真实登录名打进日志（`[dsh-tailnet-admin] 拒绝了不在 allowedUsers 里的 Tailscale 用户：…`），照着那一行
-填即可。
+登录名就是 Tailscale 管理后台里你的用户账号（通常是邮箱），不是设备名或显示名。插件没放行某个用户时
+会把真实登录名打进日志（`[dsh-tailnet-admin] 没有自动放行不在 allowedUsers 里的…`），照着那一行填即可。
 
 > 默认 `.ts.net` 已经覆盖了常见的 Tailnet 域名，所以从 `*.ts.net` 打开时配置页第一次就能正常保存，
 > 不必再绕回环地址。只有当你访问的主机不匹配 `.ts.net`（自定义域名或反向代理）时，才需要先从回环地址
@@ -149,9 +148,11 @@ ExecStart=%h/.npm/_npx/<hash>/node_modules/.bin/dsh web --host 127.0.0.1 --port 
 
 - **名单里的用户**打开页面就等于拿到这台机器的控制权 —— 读写文件、执行命令、动用你在 DSH 里配置的
   API key。所以名单要短，只写真正需要远程管理这台机器的人。
-- **名单外的 Tailscale 用户**：请求只要带着 `Tailscale-User-Login`，一律拒绝，即使手里还留着以前换来的
-  cookie 也一样。没带这个头的访问（没经过 tailscale serve、Funnel、tagged device）回落到原来的 token
-  校验；也就是说这个插件不会把「没有身份头的请求」当成已认证。
+- **名单外的 Tailscale 用户**：不会被自动放行，但插件只能**不认领**、不能否决：对方如果自己有
+  有效的登录 cookie，仍可能被宿主的令牌校验放进来。
+  名单是一条「不用 token 的捷径」，不是一道门。
+  没带这个头的访问（没经过 tailscale serve、Funnel、tagged device）回落到原来的 token 校验；也就是说
+  这个插件不会把「没有身份头的请求」当成已认证。
 - **必须只监听回环地址。** 这个判断完全建立在「`Tailscale-User-Login` 是 tailscale serve 加的」之上。
   [Tailscale 官方也要求后端只监听 localhost](https://tailscale.com/docs/features/tailscale-serve#identity-headers)；否则任何能直接打到这个端口的人都能自己写这个头。`dsh web`
   默认监听 `127.0.0.1`，不要改成 `0.0.0.0` 或 Tailnet IP。Host/Origin 栅栏挡的是伪造 Host 与跨站请求，
@@ -162,6 +163,8 @@ ExecStart=%h/.npm/_npx/<hash>/node_modules/.bin/dsh web --host 127.0.0.1 --port 
   authority，并拒绝 `Sec-Fetch-Site: cross-site`。它挡的是 DNS 重绑定与跨站请求，**不挡**「知道地址的人」。
 - 反过来，`pageHosts` 只影响**浏览器端**的设置持久化与界面可用性，它不改变服务端的任何判定。默认
   `.ts.net` 是插件场景决定的，不是认证开关；想彻底关掉注入，就在配置页把它清空并保存。
+
+> 宿主版本：本插件要求 DSH `0.2.3-alpha.2` 及以上。
 
 建议的组合：`pageHosts` 保持默认 `.ts.net`，自定义域名/反代再加一条；`allowedUsers` 只写自己的登录名，
 别把「所有用 Tailscale 的人」都写进去。想撤回认证：在配置页把名单清空（或删掉 `cordis.patch.yml` 里的
@@ -180,7 +183,7 @@ ExecStart=%h/.npm/_npx/<hash>/node_modules/.bin/dsh web --host 127.0.0.1 --port 
 | 不想在任何页面注入脚本 | 在配置页把页面主机清空并保存（显式空表），不是删掉这一项 |
 | 请求直接 403 | Host/Origin 栅栏没过：给 `dsh web` 加 `--trusted-host <authority>` |
 | 仍然要 `?token=` | `allowedUsers` 是空表；当前用户的登录名不在名单里；或者请求没经过 tailscale serve（tagged device、Funnel、直连），没有 `Tailscale-User-Login` |
-| 名单里的用户也被拒 | 登录名写错（写成了显示名或设备名），或请求没经过 tailscale serve；看日志里「拒绝了不在 allowedUsers 里的 Tailscale 用户：…」那一行的真实登录名 |
+| 名单里的用户也被拒 | 登录名写错（写成了显示名或设备名），或请求没经过 tailscale serve；看日志里「没有自动放行…」那一行的真实登录名 |
 | 启动日志里没有 `[dsh-tailnet-admin]` | 包名没写进 `dsh.profile.bundles`，或包没装上（`dsh --profile web --dump-config \| grep tailnet-admin` 可确认） |
 | 配置页说「只写进这个浏览器」、保存后 profile 没变 | 当前页面没被当作「本机」：先从回环地址打开一次，或直接改 `cordis.patch.yml` |
 | 配置页整段说「读不到这一节」 | `cordis.patch.yml` 里那一行的 `id` 不是 `tailnet-admin`，或者那一行没被启用 |

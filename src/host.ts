@@ -1,13 +1,14 @@
 import type { IndexInjection } from '@deepseek-ai/dsh-host-webserver'
 
-import type { ConnectionLike } from './browser-auth.ts'
+import type { AdmissionConnection } from './connection-auth.ts'
 
 /**
  * 本插件用到的那一小片宿主形状。
  *
  * 为什么不直接 import 官方的 `Context`：宿主服务与事件的类型由各官方包用模块增补
  * （module augmentation）声明，插件的类型面因此随"安装环境里恰好装了哪些包"而变。本插件对宿主的用法
- * 只有三处，而且**都在运行时兜底**（`browserAuth` 形状不对就不碰、配置引用缺席就按没配置处理），所以
+ * 只有三处，而且**都在运行时兜底**（`authentication` / `createPeer` 形状不对就不注册、配置引用缺席
+ * 就按没配置处理），所以
  * 这里只声明用到的部分，插件不会因为宿主换了一代类型面就编译不过。
  *
  * `IndexInjection` 是例外 —— 它正是要写进事件表里的那一行，形状对不上应当在编译期就报错，所以用官方类型。
@@ -24,9 +25,12 @@ export interface HostContext {
   inject(deps: readonly string[], callback: (ctx: ConnectionContext) => unknown): unknown
 }
 
+/** 本插件用到的 connection 服务。 */
+export type HostConnection = AdmissionConnection
+
 /** `ctx.inject` 回调收到的、已能读到 `connection` 服务的那层上下文。 */
 export interface ConnectionContext {
-  connection?: ConnectionLike
+  connection?: HostConnection
   /** Cordis 的作用域清理钩子：回调返回的清理函数在作用域销毁时执行。 */
   effect?(callback: () => (() => void) | void, label?: string): unknown
 }
