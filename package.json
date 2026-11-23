@@ -1,6 +1,6 @@
 {
   "name": "@he0119/dsh-tailnet-admin",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "用 Tailscale 账号登录 DSH，不需要 token。",
   "icon": "./icon.svg",
   "type": "module",
