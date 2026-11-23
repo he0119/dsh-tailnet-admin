@@ -1,3 +1,18 @@
+minimumReleaseAgeExclude:
+  - '@deepseek-ai/cordis@4.2.0-alpha.1'
+  - '@deepseek-ai/cosmokit@1.10.0-alpha.1'
+  - '@deepseek-ai/dsh-brand@0.2.3-alpha.2'
+  - '@deepseek-ai/dsh-client-locale@0.2.3-alpha.2'
+  - '@deepseek-ai/dsh-client-ui-plugin-manager@0.2.3-alpha.2'
+  - '@deepseek-ai/dsh-client-ui-primitives@0.2.3-alpha.2'
+  - '@deepseek-ai/dsh-client-ui-renderer@0.2.3-alpha.2'
+  - '@deepseek-ai/dsh-client-ui-settings@0.2.3-alpha.2'
+  - '@deepseek-ai/dsh-client-ui-slots@0.2.3-alpha.2'
+  - '@deepseek-ai/dsh-error@0.2.3-alpha.2'
+  - '@deepseek-ai/dsh-host-webserver@0.2.3-alpha.2'
+  - '@deepseek-ai/dsh-timeout@0.2.3-alpha.2'
+  - '@deepseek-ai/dsh-typert-protocol@0.2.3-alpha.2'
+  - '@deepseek-ai/schemastery@3.20.0-alpha.1'
 # 本仓库只有一个包，所以这里没有 `packages:` —— 这个文件只承载 pnpm 的设置。
 #
 # pnpm 10+ 起，pnpm 自己的设置以 pnpm-workspace.yaml 为准（官方推荐位置）。

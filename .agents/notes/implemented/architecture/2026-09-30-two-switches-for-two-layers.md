@@ -21,7 +21,7 @@ isLoopback: transport?.ownsHost === true || pageLocation === void 0 || isLoopbac
 
 ```
 requestRejection = isTrustedApiRequest(host, trustedHosts)   // 栅栏：回环或声明过的 authority + 同源
-                 + browserAuth.isAuthenticated(request)      // 认证：token/cookie，或插件注册的校验器
+                 + 校验器决定的 peer                          // 认证：token/cookie，或插件注册的校验器
 ```
 
 `?token=` 里的 token 每个进程重新生成（桌面壳之外没有别的入口），cookie 又有 authority 与
@@ -33,9 +33,8 @@ requestRejection = isTrustedApiRequest(host, trustedHosts)   // 栅栏：回环�
 
 - `pageHosts` 只动 ①：往启动 HTML 注入一行，把命中的页面标记成
   `globalThis.__DSH_TRANSPORT__ = { ownsHost: true }`。它不改变服务端的任何判定。
-- `allowedUsers` 只动 ② 的**后一半**：旧宿主换掉 `browserAuth.isAuthenticated`（以及存在时的
-  `authenticateApi`），0.2.3-alpha.1 起改为注册 `connection.authentication` 的校验器——两代接口都
-  是「只放行名单里的 `Tailscale-User-Login`」，栅栏那一半原样保留（见
+- `allowedUsers` 只动 ② 的**后一半**：向宿主的 `connection.authentication` 注册一个校验器，
+  只放行名单里的 `Tailscale-User-Login`（DSH `0.2.3-alpha.2` 起），栅栏那一半原样保留（见
   [认证旁路改成 Tailscale 用户白名单](2026-11-12-tailscale-user-allowlist.md)）。
 
 ## Alternatives considered

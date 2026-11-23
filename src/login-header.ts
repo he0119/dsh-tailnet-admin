@@ -1,10 +1,8 @@
 /**
  * 从请求里读 `Tailscale-User-Login`。
  *
- * 两条认证路径共用这一份读取与规整：旧宿主（0.2.2-rc.x 及更早）改的是
- * `connection.browserAuth.isAuthenticated`，新宿主（0.2.3-alpha.1 起）注册的是
- * `connection.authentication` 的校验器。同一个请求必须得到同一个答案，否则"名单里的人能不能进"
- * 会取决于宿主版本，因此判断只写在这里一次。
+ * 连接鉴权的校验器和测试都读这一份：同一个请求必须得到同一个答案，否则"名单里的人能不能进"会取决于
+ * 调用点，因此判断只写在这里一次。
  *
  * 判定规则见 {@link normalizeLogin} 与 {@link readLoginHeader}：整串相等、没有通配符，值不可用时
  * 一律当"不是名单里的人"，绝不猜。

@@ -1,7 +1,6 @@
 import type { VolatileSnapshot } from '@deepseek-ai/cordis'
 import type { IndexInjection } from '@deepseek-ai/dsh-host-webserver'
 
-import type { BrowserAuthLike } from '../src/browser-auth.ts'
 import type { PluginConfig } from '../src/config.ts'
 import type { AuthenticationProviderLike, ConnectionAuthenticationLike } from '../src/connection-auth.ts'
 import type { ConnectionContext, HostConnection, HostContext } from '../src/host.ts'
@@ -72,11 +71,6 @@ export function createFakeHost(options: { connection?: HostConnection } = {}): F
     provideConnection(): void {
       const connectionCtx: ConnectionContext = {
         connection,
-        get(name: string): unknown {
-          return name === 'connection.authentication'
-            ? (connection as { authentication?: unknown }).authentication
-            : undefined
-        },
         effect(callback) {
           const disposer = callback()
           if (typeof disposer === 'function') restorers.push(disposer)
@@ -130,20 +124,13 @@ export function createConfig(initial: { pageHosts?: string[]; allowedUsers?: str
   }
 }
 
-/** 造一个带着 Tailscale 登录名的请求：形状与宿主传给 `isAuthenticated` 的一致。 */
+/** 造一个带着 Tailscale 登录名的请求：形状与宿主传给校验器的 `ConnectionTrustRequest` 一致。 */
 export function loginRequest(login: string): { headers: Record<string, string> } {
   return { headers: { 'tailscale-user-login': login } }
 }
 
 /** 假配置与 `PluginConfig` 的关系：引用面一致，因此能直接递给 `apply`。 */
 export const asPluginConfig = (config: FakeConfig): PluginConfig => config as PluginConfig
-
-/** 假的浏览器认证：记录被问了几次、最后一次的参数，答案默认为"没通过"。 */
-export interface FakeAuth extends BrowserAuthLike {
-  calls: number
-  lastRequest: unknown
-  lastSecure: boolean | undefined
-}
 
 /** 假的 connection.authentication：记录注册了哪些校验器、撤销过几次。 */
 export interface FakeAuthentication extends ConnectionAuthenticationLike {
@@ -196,18 +183,3 @@ export function createAdmissionConnection(
   }
 }
 
-/** 造一个假认证。 */
-export function createFakeAuth(initial: { authenticated?: boolean } = {}): FakeAuth {
-  const auth: FakeAuth = {
-    calls: 0,
-    lastRequest: undefined,
-    lastSecure: undefined,
-    isAuthenticated(request: unknown, secure?: boolean): boolean {
-      auth.calls += 1
-      auth.lastRequest = request
-      auth.lastSecure = secure
-      return initial.authenticated ?? false
-    },
-  }
-  return auth
-}

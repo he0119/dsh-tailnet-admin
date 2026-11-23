@@ -21,12 +21,12 @@ function allow(users: readonly string[]): { allowedUsers: () => readonly string[
   return { allowedUsers: () => users }
 }
 
-test('形状不对就不注册：缺 connection、缺 register、缺 createPeer', () => {
-  assert.equal(registerConnectionAuthentication(undefined, undefined, allow([ALICE])), undefined)
-  assert.equal(registerConnectionAuthentication({}, undefined, allow([ALICE])), undefined)
-  assert.equal(registerConnectionAuthentication({}, {} as never, allow([ALICE])), undefined)
+test('形状不对就不注册：缺 connection、缺 authentication、缺 register、缺 createPeer', () => {
+  assert.equal(registerConnectionAuthentication(undefined, allow([ALICE])), undefined)
+  assert.equal(registerConnectionAuthentication({}, allow([ALICE])), undefined)
+  assert.equal(registerConnectionAuthentication({ authentication: {} as never }, allow([ALICE])), undefined)
   assert.equal(
-    registerConnectionAuthentication({}, createFakeAuthentication(), allow([ALICE])),
+    registerConnectionAuthentication({ authentication: createFakeAuthentication() }, allow([ALICE])),
     undefined,
     '缺 createPeer 不注册',
   )
@@ -35,7 +35,7 @@ test('形状不对就不注册：缺 connection、缺 register、缺 createPeer'
 test('注册一个校验器，只建一个 owner Peer', () => {
   const connection = createAdmissionConnection()
   const { authentication, peers } = connection
-  const handle = registerConnectionAuthentication(connection, connection.authentication, allow([ALICE]))
+  const handle = registerConnectionAuthentication(connection, allow([ALICE]))
   assert.ok(handle !== undefined)
   assert.equal(handle.registered, true)
   assert.equal(authentication.providers.length, 1)
@@ -53,7 +53,7 @@ test('注册一个校验器，只建一个 owner Peer', () => {
 test('大小写、首尾空白、Headers 都认；坏值一律不认领', () => {
   const connection = createAdmissionConnection()
   const { authentication, peers } = connection
-  const handle = registerConnectionAuthentication(connection, connection.authentication, allow([ALICE]))
+  const handle = registerConnectionAuthentication(connection, allow([ALICE]))
   const provider = authentication.providers[0]
   assert.ok(handle !== undefined && provider !== undefined)
   const peer = peers[0]
@@ -96,7 +96,7 @@ test('名单每次请求现读：配置改了不必重装', () => {
   let users: readonly string[] = [ALICE]
   const connection = createAdmissionConnection()
   const { authentication, peers } = connection
-  const handle = registerConnectionAuthentication(connection, connection.authentication, { allowedUsers: () => users })
+  const handle = registerConnectionAuthentication(connection, { allowedUsers: () => users })
   const provider = authentication.providers[0]
   assert.ok(handle !== undefined && provider !== undefined)
 
@@ -111,7 +111,7 @@ test('没放行谁：每个登录名只回调一次', () => {
   const seen: string[] = []
   const connection = createAdmissionConnection()
   const { authentication } = connection
-  const handle = registerConnectionAuthentication(connection, connection.authentication, {
+  const handle = registerConnectionAuthentication(connection, {
     allowedUsers: () => [ALICE],
     onNotAllowed: (login) => {
       seen.push(login)
@@ -130,8 +130,8 @@ test('没放行谁：每个登录名只回调一次', () => {
 test('重放时只注册一次，引用计数归零才撤销', () => {
   const connection = createAdmissionConnection()
   const { authentication } = connection
-  const first = registerConnectionAuthentication(connection, connection.authentication, { allowedUsers: () => [ALICE] })
-  const second = registerConnectionAuthentication(connection, connection.authentication, { allowedUsers: () => [BOB] })
+  const first = registerConnectionAuthentication(connection, { allowedUsers: () => [ALICE] })
+  const second = registerConnectionAuthentication(connection, { allowedUsers: () => [BOB] })
   assert.ok(first !== undefined && second !== undefined)
   assert.equal(first.registered, true)
   assert.equal(second.registered, false, '同一个注册表只挂一次')
