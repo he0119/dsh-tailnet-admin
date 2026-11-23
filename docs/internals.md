@@ -8,12 +8,12 @@
 
 ## 决策地图
 
-**免掉每次换 token，但只放行指定的人**
+**免掉 token 登录，但只放行指定的人**
 
 - [只换认证那一层，不拆栅栏](../.agents/notes/implemented/architecture/2026-09-30-only-isauthenticated-is-replaced.md)：
   替换点留在认证这一层，栅栏不动的结论仍然成立。
 - [认证旁路改成 Tailscale 用户白名单](../.agents/notes/implemented/architecture/2026-11-12-tailscale-user-allowlist.md)：
-  读 `Tailscale-User-Login`，名单内放行、名单外拒绝、没带头回落 token。
+  读 `Tailscale-User-Login`，名单内放行、名单外不认领、没带头仍要求登录。
 
 **安全上的共同表态**
 
@@ -50,7 +50,7 @@
 | 需求 | 该动谁 |
 | --- | --- |
 | 设置页在域名下能用 | 宿主的远程登录（登录后拿到的 owner Peer）；本插件不参与 |
-| 不想每次换 token，但仍只想让指定的人进 | 本插件的 `allowedUsers`（Tailscale 登录名名单） |
+| 不想用 token 登录，但仍只想让指定的人进 | 本插件的 `allowedUsers`（Tailscale 登录名名单） |
 | 请求者的 Tailscale 身份从哪来 | `tailscale serve` 加的 `Tailscale-User-Login`（Funnel 与 tagged device 没有） |
 | 改这项配置 | 本插件的配置页（**设置 → 插件 → dsh-tailnet-admin**），等价地写 profile 的 `cordis.patch.yml` |
 | `/api` 整体不被 403 | `dsh web --trusted-host <authority>` |

@@ -17,15 +17,15 @@ isLoopback: transport?.ownsHost === true || pageLocation === void 0 || isLoopbac
 `pageLocation` 是 `window.location`。两者都不成立时设置镜像直接进 `unavailable`，模型页
 拿到的是 `settings are unavailable in this browser`。
 
-**② 每次重启都要重新换 token**，判定在**服务端**，而且是两层叠在一起的：
+**② 新浏览器要重新用 token 登录**，判定在**服务端**，而且是两层叠在一起的：
 
 ```
 requestRejection = isTrustedApiRequest(host, trustedHosts)   // 栅栏：回环或声明过的 authority + 同源
                  + 校验器决定的 peer                          // 认证：token/cookie，或插件注册的校验器
 ```
 
-`?token=` 里的 token 每个进程重新生成（桌面壳之外没有别的入口），cookie 又有 authority 与
-有效期两道约束，所以「换个地址就被踢」和「每 N 天要重新点一次链接」都是这一层的正常表现。
+`?token=` 里的 token 每个进程重新生成；cookie 又有 authority 与有效期两道约束，所以「换浏览器、
+换设备要重来一次」和「cookie 过期后要重新点一次链接」都是这一层的正常表现。
 
 ## Decision
 

@@ -1,7 +1,7 @@
 {
   "name": "@he0119/dsh-tailnet-admin",
   "version": "0.2.0",
-  "description": "按 Tailscale 登录名放行已登录的浏览器：从 Tailnet 打开 DSH 时不用每次换 token（Host/Origin 栅栏保持不动）。",
+  "description": "用 Tailscale 账号登录 DSH，不需要 token。",
   "icon": "./icon.svg",
   "type": "module",
   "packageManager": "pnpm@12.6.0",

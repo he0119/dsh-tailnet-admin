@@ -77,6 +77,6 @@ curl -s -o /dev/null -w '%{http_code}\n' -H 'Host: dsh.example.ts.net' \
 
 ## 撤回
 
-这个插件不留任何持久状态，撤回就是在配置页把 `allowedUsers` 清空并保存，立刻恢复 token 校验，
+这个插件不留任何持久状态，撤回就是在配置页把 `allowedUsers` 清空并保存，立刻恢复原来的登录校验，
 不需要重启。想彻底移除：从 `dsh.profile.bundles` 里删掉包名、重启，可选再
 `npx @deepseek-ai/dsh plugin --profile web remove @he0119/dsh-tailnet-admin`。
