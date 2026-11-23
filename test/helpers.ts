@@ -2,7 +2,7 @@ import type { VolatileSnapshot } from '@deepseek-ai/cordis'
 
 import type { PluginConfig } from '../src/config.ts'
 import type { AuthenticationProviderLike, ConnectionAuthenticationLike } from '../src/connection-auth.ts'
-import type { ConnectionContext, HostConnection, HostContext } from '../src/host.ts'
+import type { HostConnection, HostContext, HostServices, WebRequestListener } from '../src/host.ts'
 
 /**
  * 只用得着三面的假宿主。
@@ -18,8 +18,12 @@ export interface FakeHost {
   readonly restorers: (() => void)[]
   /** 订阅过的宿主事件名，按首次订阅顺序。用来核"订阅挂在插件自己的 ctx 上"。 */
   readonly subscribed: string[]
-  /** 模拟 connection 服务就绪：跑一遍 `inject` 回调。可以调多次，模拟服务重建时的重放。 */
+  /** 注册到假 webServer 上的 `webserver/request` 监听器，按注册顺序。 */
+  readonly webRequests: WebRequestListener[]
+  /** 模拟 connection 服务就绪：跑一遍声明了 `connection` 的 `inject` 回调。可以调多次，模拟服务重建时的重放。 */
   provideConnection(): void
+  /** 模拟 webServer 服务就绪：跑一遍声明了 `webServer` 的 `inject` 回调。 */
+  provideWebServer(): void
   /** 模拟 Loader 把 volatile 新值就地提交之后向所属 fiber 发出的实例内事件。 */
   emitVolatile(paths?: readonly (readonly string[])[]): void
   /** 跑一遍所有清理函数（逆序，与 Cordis 作用域销毁一致）。 */
@@ -32,8 +36,9 @@ type AnyListener = (...args: any[]) => void
 /** 造一个假宿主。 */
 export function createFakeHost(options: { connection?: HostConnection } = {}): FakeHost {
   const listeners = new Map<string, AnyListener[]>()
-  const callbacks: ((ctx: ConnectionContext) => unknown)[] = []
+  const injections: { deps: readonly string[]; callback: (ctx: HostServices) => unknown }[] = []
   const restorers: (() => void)[] = []
+  const webRequests: WebRequestListener[] = []
   const connection: HostConnection = options.connection ?? {}
 
   const ctx: HostContext = {
@@ -43,8 +48,8 @@ export function createFakeHost(options: { connection?: HostConnection } = {}): F
       listeners.set(event, bucket)
       return undefined
     },
-    inject(_deps: readonly string[], callback: (ctx: ConnectionContext) => unknown): unknown {
-      callbacks.push(callback)
+    inject(deps: readonly string[], callback: (ctx: HostServices) => unknown): unknown {
+      injections.push({ deps, callback })
       return undefined
     },
   }
@@ -53,23 +58,42 @@ export function createFakeHost(options: { connection?: HostConnection } = {}): F
     for (const listener of listeners.get(event) ?? []) listener(...args)
   }
 
+  /** 跑一遍声明了某一类依赖的 inject 回调；可以调多次，模拟服务重建时的重放。 */
+  const provide = (services: HostServices, matches: (deps: readonly string[]) => boolean): void => {
+    for (const injection of injections) {
+      if (matches(injection.deps)) injection.callback(services)
+    }
+  }
+  const effect = (callback: () => (() => void) | void): unknown => {
+    const disposer = callback()
+    if (typeof disposer === 'function') restorers.push(disposer)
+    return undefined
+  }
+
   return {
     ctx,
     connection,
     restorers,
+    webRequests,
     get subscribed(): string[] {
       return [...listeners.keys()]
     },
     provideConnection(): void {
-      const connectionCtx: ConnectionContext = {
+      provide({
         connection,
-        effect(callback) {
-          const disposer = callback()
-          if (typeof disposer === 'function') restorers.push(disposer)
+        on: () => undefined,
+        effect,
+      }, (deps) => deps.includes('connection'))
+    },
+    provideWebServer(): void {
+      provide({
+        webServer: {},
+        on(_event, listener) {
+          webRequests.push(listener)
           return undefined
         },
-      }
-      for (const callback of callbacks) callback(connectionCtx)
+        effect,
+      }, (deps) => deps.includes('webServer'))
     },
     emitVolatile(paths: readonly (readonly string[])[] = [['allowedUsers']]): void {
       fire('loader/volatile-update', paths)

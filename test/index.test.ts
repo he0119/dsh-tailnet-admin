@@ -12,6 +12,7 @@
  */
 
 import assert from 'node:assert/strict'
+import type { IncomingMessage, ServerResponse } from 'node:http'
 import { test } from 'node:test'
 
 import { apply } from '../src/index.ts'
@@ -137,4 +138,52 @@ test('接口缺 createPeer：不注册', () => {
   host.provideConnection()
 
   assert.equal(authentication.providers.length, 0, '缺 createPeer 时不注册')
+})
+
+test('挂上桌面应用跳板：名单内的跨站冷启动回跳板页，不再往下走', async () => {
+  const host = createFakeHost({ connection: createAdmissionConnection() })
+  apply(host.ctx, asPluginConfig(createConfig({ allowedUsers: [ALICE] })))
+  host.provideConnection()
+  host.provideWebServer()
+
+  assert.equal(host.webRequests.length, 1, 'webServer 就绪后挂了一个请求监听器')
+  const listener = host.webRequests[0]
+  assert.ok(listener !== undefined)
+
+  const request = {
+    method: 'GET',
+    url: '/',
+    headers: {
+      'sec-fetch-site': 'cross-site',
+      'sec-fetch-mode': 'navigate',
+      'sec-fetch-dest': 'document',
+      'tailscale-user-login': ALICE,
+    },
+    destroyed: false,
+    socket: { destroyed: false },
+  } as unknown as IncomingMessage
+  const state = { statusCode: 0, body: '', headersSent: false }
+  const response = {
+    destroyed: false,
+    get headersSent(): boolean {
+      return state.headersSent
+    },
+    writeHead(code: number): unknown {
+      state.statusCode = code
+      state.headersSent = true
+      return response
+    },
+    end(body?: string): unknown {
+      state.body = body ?? ''
+      return response
+    },
+  } as unknown as ServerResponse
+  let nextCalls = 0
+  await listener(request, response, async () => {
+    nextCalls += 1
+  })
+
+  assert.equal(nextCalls, 0, '命中时不再往下走')
+  assert.equal(state.statusCode, 200)
+  assert.match(state.body, /http-equiv="refresh"/)
 })
