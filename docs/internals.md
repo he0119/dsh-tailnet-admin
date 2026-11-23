@@ -15,6 +15,12 @@
 - [认证旁路改成 Tailscale 用户白名单](../.agents/notes/implemented/architecture/2026-11-12-tailscale-user-allowlist.md)：
   读 `Tailscale-User-Login`，名单内放行、名单外不认领、没带头仍要求登录。
 
+**从桌面图标打开（装成应用的网页）**
+
+- [冷启动先做一次同源重载](../.agents/notes/implemented/bug-fix/2026-11-23-pwa-cold-launch-bootstrap.md)：
+  安卓 WebAPK 的第一次跳转被浏览器标成跨站，宿主在认证前就回 403；插件只对名单里的用户补一跳，
+  真正的页面仍过栅栏与认证。
+
 **安全上的共同表态**
 
 - [认证边界默认不做事](../.agents/notes/implemented/architecture/2026-09-30-switches-default-to-off.md)：
@@ -54,4 +60,5 @@
 | 请求者的 Tailscale 身份从哪来 | `tailscale serve` 加的 `Tailscale-User-Login`（Funnel 与 tagged device 没有） |
 | 改这项配置 | 本插件的配置页（**设置 → 插件 → dsh-tailnet-admin**），等价地写 profile 的 `cordis.patch.yml` |
 | `/api` 整体不被 403 | `dsh web --trusted-host <authority>` |
+| 从桌面图标冷启动不被 403 | 本插件的同源跳板（只对名单里的用户；token 登录的用户仍会 403） |
 | 配置管理插件的页面（备份/导入/配置管理） | 它自己的硬 `loopback-only` 栅栏，没有任何开关能放开，只能走回环（SSH 隧道） |

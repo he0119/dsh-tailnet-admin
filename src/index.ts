@@ -10,6 +10,9 @@
  * 确实经过 tailscale serve、DSH 只监听回环地址时才可靠。理由与代价写在 docs/internals.md 的决策地图里，
  * 别在这里重复。
  *
+ * 另外在 `webserver/request` 里给名单里的用户补一跳同源重载：安卓桌面应用冷启动的第一次跳转被浏览器
+ * 标成跨站，新版栅栏会在认证之前回 403（见 launch-bootstrap.ts）。
+ *
  * 配置是 volatile（见 config.ts）：从侧边栏「插件」页的配置表单或 profile 的 `cordis.patch.yml` 来；
  * Loader 提交新值后**只发一次 `loader/volatile-update`、不重挂插件**，因此名单在事件到达时对齐，
  * 校验器每次请求现读名单。改配置不必重启。
@@ -17,22 +20,13 @@
 import { Config, type PluginConfig } from './config.ts'
 import { registerConnectionAuthentication } from './connection-auth.ts'
 import type { ConnectionContext, HostConnection, HostContext } from './host.ts'
+import { installLaunchBootstrap } from './launch-bootstrap.ts'
+import { log } from './log.ts'
 import { resolveOptions } from './options.ts'
 
 export const name = 'dsh-tailnet-admin'
 
 export { Config }
-
-/** 日志前缀：宿主把插件的 stdout 直接写进 dsh 的启动日志，前缀是唯一能把几轮刷新分开的线索。 */
-const LOG_PREFIX = '[dsh-tailnet-admin]'
-
-function log(message: string): void {
-  try {
-    console.info(`${LOG_PREFIX} ${message}`)
-  } catch {
-    // 日志失败不影响插件本身：它只写 stdout，没有别的副作用。
-  }
-}
 
 /** 字符串表在日志里的一行写法；空表说成"（空）"，免得留一段空白看不出所以然。 */
 function listText(items: readonly string[]): string {
@@ -119,6 +113,7 @@ function installUserAllowlist(ctx: HostContext, config: PluginConfig | undefined
  */
 export function apply(ctx: HostContext, config?: PluginConfig): void {
   installUserAllowlist(ctx, config)
+  installLaunchBootstrap(ctx, config)
   ctx.on('loader/volatile-update', () => {
     log(`配置已更新：allowedUsers=${listText(resolveOptions(config).allowedUsers)}`)
   })

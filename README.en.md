@@ -23,6 +23,11 @@ in as usual.
 
 After login, the settings page, model directory, and plugin config all work.
 
+When you open the installed web app from its home-screen icon, Android marks the first navigation as
+cross-site, and newer DSH releases return 403 before authentication. For listed users the plugin answers with
+an inert same-origin reload page; the second request is same-origin and goes through the normal fence and
+authentication. Ordinary browser tabs are unaffected.
+
 ## Install
 
 Requires Node `^22.19.0 || >=24.0.0` and DSH `0.2.3-alpha.2` or newer.
@@ -70,6 +75,9 @@ When the plugin refuses someone it logs the real login name; copy that line.
 - **DSH must listen on `127.0.0.1` only**: the check rests on the header being added by tailscale serve; exposing
   the port directly lets anyone forge it.
 - Requests without the header (Funnel, tagged devices, direct connections) still have to log in.
+- **The desktop-app bootstrap page carries no application data**: it appears only for a listed Tailscale user's
+  cold launch from the home-screen icon and reloads the same address; the real page and API still pass the
+  Host/Origin fence and authentication.
 
 ## Troubleshooting
 
@@ -79,6 +87,7 @@ When the plugin refuses someone it logs the real login name; copy that line.
 | Still asked to log in | `allowedUsers` is empty, the login name is not listed, or the request did not come through tailscale serve |
 | A listed user is refused too | Wrong login name; the log line "没有自动放行…" shows the real one |
 | The config page cannot read the section | The `id` of that `cordis.patch.yml` row is not `tailnet-admin` |
+| The installed app flashes a blank page first | Expected: the plugin answers with the same-origin bootstrap page, which reloads immediately; a persistent `forbidden` is the first row above |
 
 ## Development
 

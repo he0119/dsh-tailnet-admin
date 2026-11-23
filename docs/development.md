@@ -48,7 +48,7 @@ npx @deepseek-ai/dsh plugin --profile web add link:/path/to/dsh-tailnet-admin
     allowedUsers: [alice@example.com]   # 你在 Tailscale 里的登录名；留空 = 不碰认证
 ```
 
-重启 DSH（systemd：`systemctl --user restart dsh-web`），然后按下面四条逐一确认 —— 它们分别证明一件不同
+重启 DSH（systemd：`systemctl --user restart dsh-web`），然后按下面五条逐一确认 —— 它们分别证明一件不同
 的事，任何一条不过就还没到"能用"：
 
 ```sh
@@ -74,6 +74,19 @@ curl -s -o /dev/null -w '%{http_code}\n' -H 'Host: dsh.example.ts.net' \
 应当出现一个输入框与当前值；改一次 `allowedUsers` 并保存，`~/.dsh/profiles/web/cordis.patch.yml` 里
 `tailnet-admin` 那一段当场变，日志里多一行 `[dsh-tailnet-admin] 配置已更新：…`，并且**不重启**就生效
 （②③ 此时要依然成立）。配置页在登录后的公开地址上就能保存。
+
+⑤ 桌面应用冷启动：第一次跨站顶层跳转先拿到跳板页，页面自己重载成同源请求。用 curl 伪造头只能看到
+第一跳（真实的第二跳由浏览器发起，最直接是装成应用看一次）；返回体里应有 meta refresh，且没有应用
+数据：
+
+```sh
+curl -s -H 'Host: dsh.example.ts.net' \
+  -H 'Sec-Fetch-Site: cross-site' -H 'Sec-Fetch-Mode: navigate' -H 'Sec-Fetch-Dest: document' \
+  -H 'Tailscale-User-Login: alice@example.com' http://127.0.0.1:3080/ \
+  | grep -o 'http-equiv="refresh"'
+```
+
+名单外的人或没带身份头的同一个请求不该拿到跳板页：前者回 403，后者回登录页。
 
 ## 撤回
 
