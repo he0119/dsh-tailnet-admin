@@ -148,8 +148,8 @@ ExecStart=%h/.npm/_npx/<hash>/node_modules/.bin/dsh web --host 127.0.0.1 --port 
 
 - **名单里的用户**打开页面就等于拿到这台机器的控制权 —— 读写文件、执行命令、动用你在 DSH 里配置的
   API key。所以名单要短，只写真正需要远程管理这台机器的人。
-- **名单外的 Tailscale 用户**：不会被自动放行，但插件只能**不认领**、不能否决——这是宿主
-  `0.2.3-alpha.2` 起的接口形状：对方如果自己有有效的登录 cookie，仍可能被宿主的令牌校验放进来。
+- **名单外的 Tailscale 用户**：不会被自动放行，但插件只能**不认领**、不能否决：对方如果自己有
+  有效的登录 cookie，仍可能被宿主的令牌校验放进来。
   名单是一条「不用 token 的捷径」，不是一道门。
   没带这个头的访问（没经过 tailscale serve、Funnel、tagged device）回落到原来的 token 校验；也就是说
   这个插件不会把「没有身份头的请求」当成已认证。
@@ -164,8 +164,7 @@ ExecStart=%h/.npm/_npx/<hash>/node_modules/.bin/dsh web --host 127.0.0.1 --port 
 - 反过来，`pageHosts` 只影响**浏览器端**的设置持久化与界面可用性，它不改变服务端的任何判定。默认
   `.ts.net` 是插件场景决定的，不是认证开关；想彻底关掉注入，就在配置页把它清空并保存。
 
-> 宿主版本：本插件要求 DSH `0.2.3-alpha.2` 及以上。更早的版本没有 `connection.authentication`，
-> 装上去不会生效。
+> 宿主版本：本插件要求 DSH `0.2.3-alpha.2` 及以上。
 
 建议的组合：`pageHosts` 保持默认 `.ts.net`，自定义域名/反代再加一条；`allowedUsers` 只写自己的登录名，
 别把「所有用 Tailscale 的人」都写进去。想撤回认证：在配置页把名单清空（或删掉 `cordis.patch.yml` 里的

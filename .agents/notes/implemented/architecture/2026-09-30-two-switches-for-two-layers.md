@@ -34,7 +34,7 @@ requestRejection = isTrustedApiRequest(host, trustedHosts)   // 栅栏：回环�
 - `pageHosts` 只动 ①：往启动 HTML 注入一行，把命中的页面标记成
   `globalThis.__DSH_TRANSPORT__ = { ownsHost: true }`。它不改变服务端的任何判定。
 - `allowedUsers` 只动 ② 的**后一半**：向宿主的 `connection.authentication` 注册一个校验器，
-  只放行名单里的 `Tailscale-User-Login`（DSH `0.2.3-alpha.2` 起），栅栏那一半原样保留（见
+  只放行名单里的 `Tailscale-User-Login`，栅栏那一半原样保留（见
   [认证旁路改成 Tailscale 用户白名单](2026-11-12-tailscale-user-allowlist.md)）。
 
 ## Alternatives considered

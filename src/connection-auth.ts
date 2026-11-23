@@ -1,5 +1,5 @@
 /**
- * 连接鉴权注册（宿主 0.2.3-alpha.2 起）。
+ * 连接鉴权注册。
  *
  * 宿主把「这个请求代表谁」的判断收进 `connection.authentication`：插件用 `register(provider)` 挂一个
  * 校验器，`admit` 按注册顺序问，第一个返回 Peer 的算数；都没认领就 401（校验器抛错时 503）。
@@ -11,9 +11,6 @@
  * - **注册顺序有意义。** 带 API 凭据的请求应当在令牌校验器那里被认领（它认得凭据，会给出带
  *   RemoteAccess 的 Peer）。本插件在 profile 补丁里排在 web bundle 之后加载，因此注册在令牌之后；
  *   顺序反过来时，一个带 API 凭据、又带身份头的请求会被这里当成 owner。
- *
- * 不再支持旧宿主（0.2.2-rc.x 及更早）的 `browserAuth.isAuthenticated`：那个接口在 0.2.3-alpha.1
- * 已被删除，维护两套替换点只会让同一份名单在不同宿主上表现不同。
  */
 
 import { readLoginHeader } from './login-header.ts'
@@ -31,7 +28,7 @@ export interface ConnectionAuthenticationLike {
 
 /** `connection` 服务里本模块用到的部分。 */
 export interface AdmissionConnection {
-  /** 凭据校验器的注册表；宿主 0.2.3-alpha.2 起才有。 */
+  /** 凭据校验器的注册表。 */
   readonly authentication?: ConnectionAuthenticationLike
   /** 建一个独立的进程内 Peer；principal 固定为 owner，与令牌插件给浏览器的那一个同级。 */
   createPeer?(options: { principal: { kind: 'owner' } }): unknown

@@ -36,6 +36,5 @@ requestRejection = isTrustedApiRequest(host, trustedHosts)   // Host/Origin 栅�
   可以放宽。
 
 > 后续：本记录里「换成常量 `true`」的那一半已被
-> [认证旁路改成 Tailscale 用户白名单](2026-11-12-tailscale-user-allowlist.md) 取代。替换点也换过一代：
-> 宿主删掉 `browserAuth` 后，插件改为注册 `connection.authentication` 的校验器，并把最低支持版本
-> 抬到 0.2.3-alpha.2；**栅栏不动的结论始终不变**。
+> [认证旁路改成 Tailscale 用户白名单](2026-11-12-tailscale-user-allowlist.md) 取代；**栅栏不动的结论
+> 始终不变**。

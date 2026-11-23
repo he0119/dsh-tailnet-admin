@@ -12,7 +12,7 @@ Status: implemented
 ## Decision
 
 把「关掉浏览器会话校验」换成 `allowedUsers` 名单，默认空表（= 不做事）。名单非空时，向宿主的
-`ctx.connection.authentication.register(provider)` 交一个校验器（要求 DSH `0.2.3-alpha.2` 起）：
+`ctx.connection.authentication.register(provider)` 交一个校验器：
 
 - 请求带 `Tailscale-User-Login`：转小写后与名单整串比较，命中就返回插件建好的共享 `owner` Peer；
 - 带了但不在名单里（或头值不可用）：返回 `undefined`，让下一个校验器继续问；
@@ -21,7 +21,7 @@ Status: implemented
 Peer 用 `connection.createPeer({ principal: { kind: 'owner' } })` 建一次，所有名单用户共用。替换点只在
 认证这一层，Host/Origin 栅栏与 `isTrustedApiRequest` / `trustedHosts` 没动。这条决策取代
 [只替换 isAuthenticated，不拆栅栏](2026-09-30-only-isauthenticated-is-replaced.md) 里「替换成常量
-`true`」的那一半，也取代那篇记录里「替换点始终在 isAuthenticated」的后半句。
+`true`」的那一半。
 
 Tailscale 的 [Serve 身份头](https://tailscale.com/docs/features/tailscale-serve#identity-headers) 说清了两件
 事：头是 serve 加的，而且 serve 会先删掉入站请求里的同名头。插件依赖的正是这两条。
@@ -37,8 +37,7 @@ Tailscale 的 [Serve 身份头](https://tailscale.com/docs/features/tailscale-se
 ## 接口的约束
 
 - **不能否决。** 返回 `undefined` 只是让下一个校验器继续问；名单外的人如果自己有有效的登录 cookie，
-  仍可能被令牌插件放进来。名单是一条"自动放行"的捷径，不是一道门。旧接口能直接答 false，宿主在
-  0.2.3-alpha.1 把它删掉了，这个能力也随之消失。
+  仍可能被令牌插件放进来。名单是一条"自动放行"的捷径，不是一道门。
 - **注册顺序有意义。** 带 API 凭据的请求应当在令牌校验器那里被认领（它认得凭据，会给出带 RemoteAccess
   的 Peer）。插件在 profile 补丁里排在 web bundle 之后加载，因此注册在令牌之后；顺序反过来时，一个带
   API 凭据、又带身份头的请求会被这里当成 owner。
@@ -69,9 +68,6 @@ tagged device 与同一台机器上的本地进程都不在 ACL 的「用户」�
 
 **用来源 IP / `remoteAddress` 判断。** 宿主传给校验器的只有 `headers`
 （`ConnectionTrustRequest` 只声明了这一面），拿不到可靠的来源地址；就算拿得到，本机进程也永远是回环。
-
-**保留双路径。** 0.2.3-alpha.1 起 `browserAuth` 已被删除，旧路径在新宿主上只会静默不装；为了一个没人
-运行的宿主版本维护两套替换点和两套测试，不如把插件下限直接抬到 `0.2.3-alpha.2`。
 
 **用抛错表示拒绝。** `authenticate` 抛错会让 `admit` 记一次失败；如果其它校验器都没认领，结果是 503
 （服务故障），不是"这个人被拒绝"——还会把本来能进的人挡成故障。

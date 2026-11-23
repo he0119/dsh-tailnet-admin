@@ -9,7 +9,7 @@
  *    非回环地址上能不能用。
  *
  * ② `allowedUsers`：向宿主的 `connection.authentication` 注册一个校验器，只放行名单里的
- *    `Tailscale-User-Login`（要求宿主 0.2.3-alpha.2 起）。没带身份头的访问仍回落到原来的
+ *    `Tailscale-User-Login`。没带身份头的访问仍回落到原来的
  *    token/cookie 校验。**Host/Origin 栅栏不在其中**——它仍然只认回环或 `--trusted-host` 声明过的
  *    authority。新接口只能"不认领"、不能"否决"，这一点写在 connection-auth.ts 的开头。
  *
@@ -82,8 +82,7 @@ interface Admission {
  * 幂等由 connection-auth.ts 的引用计数负责，这里只是"每次回调都重新拿一次当前的服务"。
  *
  * 两个依赖都写进 inject：`connection.authentication` 是连接插件挂的嵌套服务，Cordis 4.2 起未声明的
- * 属性读取会直接抛 `cannot get property ... without inject`。插件从这里开始只支持 0.2.3-alpha.2，
- * 所以不存在"旧宿主上这个依赖永远不出现、回调不触发"的问题。
+ * 属性读取会直接抛 `cannot get property ... without inject`，不能只按属性链读。
  *
  * `sync()` 是唯一的写入口，三处调用它：拿到 connection 时（此时名单可能已经非空）、配置更新时、
  * 以及作用域销毁时反过来还原。名单为空就是"不做事"：没有安装就什么都不用做，装过就还回去。

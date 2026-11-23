@@ -32,7 +32,7 @@
    （Tailnet 的 MagicDNS 后缀，只影响浏览器端的设置持久化）。空名单是"不做事"，不是"拒绝所有人"——
    别把一个手滑变成全员被挡；要关掉页面注入，就把 `pageHosts` 显式设成空表。
 2. **不动 Host/Origin 栅栏。** 认证那层可以按名单放行：向宿主的
-   `connection.authentication.register` 注册校验器（要求 DSH `0.2.3-alpha.2` 起）；栅栏那层
+   `connection.authentication.register` 注册校验器（要求 DSH `0.2.3-alpha.2` 及以上）；栅栏那层
    （`isTrustedApiRequest` / `trustedHosts`）不许碰，也不许在文档里暗示它可以放宽。
 3. **名单只做精确匹配。** `allowedUsers` 在 schema 层是 `z.array(String)`，判断是「转小写后整串相等」；
    不许加通配符、后缀、正则或显示名匹配。登录名只接受可打印 ASCII（Tailscale 对非 ASCII 值做 RFC2047

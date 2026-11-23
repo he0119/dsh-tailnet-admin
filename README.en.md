@@ -166,9 +166,9 @@ ExecStart=%h/.npm/_npx/<hash>/node_modules/.bin/dsh web --host 127.0.0.1 --port 
 
 - **A listed user** who opens the page gains control of the machine — read and write files, run commands, use the
   API keys you configured in DSH. Keep the list short: only people who really need remote admin on this machine.
-- **Anyone else on the tailnet** is not admitted automatically, but the plugin can only decline, not veto —
-  that is the shape of the host API from `0.2.3-alpha.2` on: a caller with a valid login cookie of their own may
-  still be admitted by the host's token verifier. The list is a shortcut that skips the token, not a gate.
+- **Anyone else on the tailnet** is not admitted automatically, but the plugin can only decline, not veto:
+  a caller with a valid login cookie of their own may still be admitted by the host's token verifier. The list is
+  a shortcut that skips the token, not a gate.
   Requests without that header (no tailscale serve, Funnel, tagged devices) fall back to the original token check;
   the plugin never treats a header-less request as authenticated.
 - **DSH must listen on loopback only.** The whole decision rests on "`Tailscale-User-Login` was added by
@@ -187,8 +187,7 @@ ExecStart=%h/.npm/_npx/<hash>/node_modules/.bin/dsh web --host 127.0.0.1 --port 
   server-side decision. The `.ts.net` default follows from the plugin's scope, not from an authentication choice;
   clear the list on the config page if you want no injection at all.
 
-> Host versions: this plugin requires DSH `0.2.3-alpha.2` or newer. Older versions do not have
-> `connection.authentication`, so the list has no effect there.
+> Host versions: this plugin requires DSH `0.2.3-alpha.2` or newer.
 
 Suggested posture: leave `pageHosts` at `.ts.net` and add a custom domain only when needed; put only your own
 login name in `allowedUsers`, never "everyone on the tailnet". To revert authentication, clear the list on the
