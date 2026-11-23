@@ -28,4 +28,7 @@ Status: implemented
 ## Consequences
 
 - `*` 是唯一一个放弃收窄的写法，让使用者显式放弃，而不是靠一个含混的后缀。
-- 这三条语义都有单测钉着（`test/page-hosts.test.ts`）：改判据要连着改它。
+- 这三条语义当时都有单测钉着（`test/page-hosts.test.ts`，已随功能删除）。
+
+> 后续：这组匹配规则随 `pageHosts` 一起被
+> [去掉 pageHosts](../simplification/2026-11-23-remove-page-hosts.md) 移除。

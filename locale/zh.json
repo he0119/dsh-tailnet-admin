@@ -1,6 +1,6 @@
 {
   "meta": {
     "title": "Tailnet 管理",
-    "description": "在 Tailnet 或反向代理域名下打开页面时，让设置页照常可用，并可只允许指定的 Tailscale 用户免 token 进入。"
+    "description": "从 Tailnet 打开 DSH 时，按 Tailscale 登录名放行已登录的浏览器，不用每次换 token。"
   }
 }

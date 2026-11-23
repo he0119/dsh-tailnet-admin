@@ -3,7 +3,7 @@
  *
  * 两份断言，对着两件不同的事：
  *
- * - **规则表草稿**（源码层）：`pageHosts` 是数组而官方表单按草稿文本组织，中间那层换算决定了"按保存
+ * - **名单草稿**（源码层）：`allowedUsers` 是数组而官方表单按草稿文本组织，中间那层换算决定了"按保存
  *   会写进去什么"，以及哪些写法当场挡住。这几条是纯函数，直接测源码。
  * - **打包产物**（vm 层）：客户端半侧不在本进程里跑，而是由宿主的模块加载器执行。id 不对、导出的面
  *   不对、require 了宿主没提供的模块、注册时机不对——这些在源码层面全都看不出来。于是这里按模块加载器
@@ -25,14 +25,7 @@ import { test } from 'node:test'
 import { fileURLToPath } from 'node:url'
 import vm from 'node:vm'
 
-import {
-  allowedUsersField,
-  isUsableAllowedUser,
-  isUsablePageHost,
-  pageHostsField,
-  splitAllowedUsersDraft,
-  splitPageHostsDraft,
-} from '../src/client/rules.ts'
+import { allowedUsersField, isUsableAllowedUser, splitAllowedUsersDraft } from '../src/client/rules.ts'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const BUNDLE = join(ROOT, 'lib/client.js')
@@ -50,33 +43,7 @@ const NS = 'settings.tailnetAdmin'
 /** 设置命名空间：profile 里那一行的 entry id，也是配置表单的键。 */
 const SETTINGS_NS = 'tailnet-admin'
 
-// ------------------------------------------------------------------ 规则表草稿（源码）
-
-test('规则表：只有注入脚本真能命中的写法才算可用', () => {
-  for (const rule of ['*', '.ts.net', 'dsh.example.com', 'localhost', '127.0.0.1', '.internal']) {
-    assert.equal(isUsablePageHost(rule), true, `${rule} 应当算可用`)
-  }
-  for (const rule of ['', '*.ts.net', 'https://dsh.example.com', 'dsh.example.com:3080', 'a b', '.', '.ts.net.', 'a..b', 'x/y', 'a?b']) {
-    assert.equal(isUsablePageHost(rule), false, `${rule} 命不中任何主机，应当算不可用`)
-  }
-})
-
-test('规则表草稿：按行与逗号切，去空白、丢空项', () => {
-  assert.deepEqual(splitPageHostsDraft('.ts.net\ndsh.example.com'), ['.ts.net', 'dsh.example.com'])
-  assert.deepEqual(splitPageHostsDraft(' .ts.net , , my.lan\n\n'), ['.ts.net', 'my.lan'])
-  assert.deepEqual(splitPageHostsDraft('   '), [])
-})
-
-test('规则表字段：值↔文本的换算，空文本 = 显式不注入', () => {
-  const field = pageHostsField('pageHosts')
-  assert.equal(field.format(['.ts.net', 'dsh.example.com']), '.ts.net\ndsh.example.com')
-  assert.equal(field.format([]), '')
-  assert.equal(field.format(undefined), '')
-  assert.deepEqual(field.parse('.ts.net\n\nmy.lan'), { kind: 'set', value: ['.ts.net', 'my.lan'] })
-  assert.deepEqual(field.parse('  '), { kind: 'set', value: [] })
-  assert.equal(field.parse('*.ts.net'), undefined, '命不中的写法不产生写入：官方表单据此挡住保存')
-  assert.equal(field.parse('.ts.net\n*.ts.net'), undefined, '只要有一条命不中，整次保存就不该发生')
-})
+// ------------------------------------------------------------------ 名单草稿（源码）
 
 test('用户名单：只有完整的 ASCII 登录名算可用', () => {
   for (const user of ['alice@example.com', 'he0119@github', 'a+b@example.co.uk', 'user.name@example.com']) {
@@ -146,7 +113,7 @@ function createFakeDocument(): FakeDocument {
 
 /** 官方 `SettingsFormModel` 的替身：只记下规格与投影，形状对齐接缝。 */
 class FakeSettingsFormModel {
-  /** 每次构造记一笔：用来核"两个字段的规格都交出去了"。 */
+  /** 每次构造记一笔：用来核"字段的规格交出去了"。 */
   static readonly constructed: { specs: readonly { field: string }[] }[] = []
 
   private readonly scope: { getSnapshot(): { status: string } }
@@ -237,9 +204,9 @@ function createFakeClient(options: { configForms?: boolean } = {}): FakeClient {
   const scope = {
     getSnapshot: () => ({
       status: 'ready',
-      value: { pageHosts: ['.ts.net'], allowedUsers: ['alice@example.com'] },
+      value: { allowedUsers: ['alice@example.com'] },
       base: undefined,
-      user: { pageHosts: ['.ts.net'] },
+      user: { allowedUsers: ['alice@example.com'] },
       writable: true,
       revision: 7,
     }),
@@ -332,7 +299,7 @@ test('产物：apply 注册官方插件页的配置槽位，键是包名', { ski
   )
 })
 
-test('产物：注入面给出快照钩子与四个表单动作，规格就是那两个字段', { skip }, () => {
+test('产物：注入面给出快照钩子与四个表单动作，规格就是那个字段', { skip }, () => {
   const client = createFakeClient()
   const apply = loaded?.exported.apply as ((ctx: unknown) => void) | undefined
   // 替身是模块级的：前面的用例也构造过模型，这里只想看这一次 apply 交出去的规格。
@@ -351,8 +318,8 @@ test('产物：注入面给出快照钩子与四个表单动作，规格就是�
 
   assert.deepEqual(
     Array.from(FakeSettingsFormModel.constructed, (entry) => Array.from(entry.specs, (spec) => spec.field)),
-    [['pageHosts', 'allowedUsers']],
-    '两个字段的换算规格都要交给官方表单模型',
+    [['allowedUsers']],
+    '字段的换算规格要交给官方表单模型',
   )
 })
 

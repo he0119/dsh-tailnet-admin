@@ -62,3 +62,5 @@ Status: implemented
   （例如 `.long-antares.ts.net`）即可。
 - 根 `AGENTS.md` 硬约束第 1 条按新默认重写：认证边界默认不做事；页面主机默认 `.ts.net`，要关掉就显式
   设成空表。
+
+> 后续：`pageHosts` 已被 [去掉 pageHosts](../simplification/2026-11-23-remove-page-hosts.md) 移除。

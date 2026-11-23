@@ -49,3 +49,6 @@ requestRejection = isTrustedApiRequest(host, trustedHosts)   // 栅栏：回环�
 
 - 两项配置可以各自单独使用，README 的配置表因此按「想解决哪一件事」组织。
 - 两层的失败表现互不掩盖：设置页报 `unavailable` 是 ① 没生效，反复要 token 是 ② 没生效。
+
+> 后续：① 那一层（`pageHosts`）已被
+> [去掉 pageHosts](../simplification/2026-11-23-remove-page-hosts.md) 移除；② 的结论不变。

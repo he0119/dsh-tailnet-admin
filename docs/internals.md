@@ -8,22 +8,7 @@
 
 ## 决策地图
 
-**两件事是怎么分开的**
-
-- [两项配置，各自只动一层](../.agents/notes/implemented/architecture/2026-09-30-two-switches-for-two-layers.md)：
-  ① 的判定在浏览器端（`isLoopback`），② 的判定在服务端（栅栏 + 会话认证），`--trusted-host`
-  只喂后者。
-
-**① 让命中主机的页面被当成「本机」**
-
-- [注入走 webserver/index-inject](../.agents/notes/implemented/architecture/2026-09-30-inject-through-webserver-index-inject.md)：
-  官方扩展点、`placement: head`、改完刷新即生效。
-- [主机规则是子域边界匹配](../.agents/notes/implemented/architecture/2026-09-30-host-rules-are-subdomain-bounded.md)：
-  `.ts.net` 命中子域、不命中裸域名，也不命中 `evilts.net`。
-- [pageHosts 默认 .ts.net](../.agents/notes/implemented/architecture/2026-11-12-page-hosts-default-ts-net.md)：
-  插件的场景就是 Tailnet 页面，默认值直接覆盖常见域名；自定义域名/反代仍然在字段里加。
-
-**② 免掉每次换 token，但只放行指定的人**
+**免掉每次换 token，但只放行指定的人**
 
 - [只换认证那一层，不拆栅栏](../.agents/notes/implemented/architecture/2026-09-30-only-isauthenticated-is-replaced.md)：
   替换点留在认证这一层，栅栏不动的结论仍然成立。
@@ -38,9 +23,14 @@
 **配置的取值只有一个来源**
 
 - [配置页是配置的唯一来源](../.agents/notes/implemented/architecture/2026-10-09-config-page-is-the-only-source.md)：
-  两项配置都是 volatile 字段（设置服务只投影这一种），页面挂在 `plugins.bundle.config`、写的就是 profile 的
-  `cordis.patch.yml` 里那一行的 `config`；环境变量那条路已删。改配置不重启：注入行每次渲染 index.html 时
-  重算，认证旁路在 `loader/volatile-update` 到达时对齐。
+  `allowedUsers` 是 volatile 字段（设置服务只投影这一种），页面挂在 `plugins.bundle.config`、写的就是
+  profile 的 `cordis.patch.yml` 里那一行的 `config`；环境变量那条路已删。改配置不重启：认证旁路在
+  `loader/volatile-update` 到达时对齐。
+
+**不再注入页面脚本**
+
+- [去掉 pageHosts](../.agents/notes/implemented/simplification/2026-11-23-remove-page-hosts.md)：设置页靠
+  登录后的 owner Peer 使用；只有 `通用设置` 里的配置文件编辑器读 `isLoopback`，留在本机地址。
 
 **宿主会重放**
 
@@ -55,13 +45,13 @@
 
 ## 跨插件的分工
 
-域名下用得顺不顺，取决于几道互相独立的判定；本插件只负责其中与它有关的两项：
+域名下用得顺不顺，取决于几道互相独立的判定；本插件只负责认证这一项：
 
 | 需求 | 该动谁 |
 | --- | --- |
-| 设置页在域名下能用 | 本插件的 `pageHosts`（默认 `.ts.net`；自定义域名/反代自己加） |
+| 设置页在域名下能用 | 宿主的远程登录（登录后拿到的 owner Peer）；本插件不参与 |
 | 不想每次换 token，但仍只想让指定的人进 | 本插件的 `allowedUsers`（Tailscale 登录名名单） |
 | 请求者的 Tailscale 身份从哪来 | `tailscale serve` 加的 `Tailscale-User-Login`（Funnel 与 tagged device 没有） |
-| 改这两项配置 | 本插件的配置页（**设置 → 插件 → dsh-tailnet-admin**），等价地写 profile 的 `cordis.patch.yml` |
+| 改这项配置 | 本插件的配置页（**设置 → 插件 → dsh-tailnet-admin**），等价地写 profile 的 `cordis.patch.yml` |
 | `/api` 整体不被 403 | `dsh web --trusted-host <authority>` |
 | 配置管理插件的页面（备份/导入/配置管理） | 它自己的硬 `loopback-only` 栅栏，没有任何开关能放开，只能走回环（SSH 隧道） |

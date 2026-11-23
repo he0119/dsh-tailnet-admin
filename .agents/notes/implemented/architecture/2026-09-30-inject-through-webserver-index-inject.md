@@ -30,3 +30,6 @@ Status: implemented
 - 脚本里三处写法是刻意的：`__DSH_TRANSPORT__` 已存在时让路（桌面壳会自己注入这个对象）；规则表用
   `JSON.stringify` 内联并把 `<` 转义成 `\u003c`（规则里带 `</script` 也关不掉这个元素）；用 `var`
   与显式索引循环（这是一段经典脚本，注入位置在 `<head>` 最前，不假设任何后置语法）。
+
+> 后续：这条注入随 `pageHosts` 一起被
+> [去掉 pageHosts](../simplification/2026-11-23-remove-page-hosts.md) 移除。

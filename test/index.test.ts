@@ -1,11 +1,10 @@
 /**
- * 插件行为：两个安装点，以及"配置改了之后它怎么跟上"。
+ * 插件行为：连接鉴权登记，以及"配置改了之后它怎么跟上"。
  *
- * 这里刻意用假宿主手动驱动（见 helpers.ts）：本插件的两项配置都是 volatile 字段，宿主**不会**因此
+ * 这里刻意用假宿主手动驱动（见 helpers.ts）：本插件的配置是 volatile 字段，宿主**不会**因此
  * 重挂插件，只会发一次 `loader/volatile-update`。因此这一份的重点不是"apply 时算了什么"，而是：
  *
- * - 注入行是在**每次渲染**时按当时的规则算的（改完配置，同一个订阅者下一次渲染就该不一样）；
- * - 身份名单在事件到达时对齐：空→不装、非空→注册、清空→撤销；
+ * - 空→不装、非空→注册、清空→撤销；
  * - 订阅挂在插件自己的 `ctx` 上（`loader/volatile-update` 是实例内事件，挂在子 fiber 上收不到）；
  * - 作用域销毁之后，注册回到原样（无论当时名单是不是空的）。
  *
@@ -28,53 +27,14 @@ import {
 const ALICE = 'alice@example.com'
 const BOB = 'bob@example.com'
 
-test('默认配置：只把 .ts.net 当本机，不注册校验器', () => {
+test('默认配置：不注册校验器，也不订阅页面注入', () => {
   const connection = createAdmissionConnection()
   const host = createFakeHost({ connection })
   apply(host.ctx, asPluginConfig(createConfig()))
-
-  const rows = host.renderIndex()
-  assert.equal(rows.length, 1, '默认的 .ts.net 应当有一行注入')
-  assert.ok(rows[0]?.kind === 'script' && rows[0].text.includes('.ts.net'))
-
   host.provideConnection()
+
   assert.equal(connection.authentication.providers.length, 0, '名单为空时不碰认证')
-})
-
-test('pageHosts 命中时注入一行 head 脚本', () => {
-  const host = createFakeHost()
-  apply(host.ctx, asPluginConfig(createConfig({ pageHosts: ['.ts.net'] })))
-
-  const rows = host.renderIndex()
-  assert.equal(rows.length, 1)
-  const row = rows[0]
-  assert.ok(row !== undefined)
-  assert.equal(row.kind, 'script')
-  if (row.kind === 'script') {
-    assert.equal(row.placement, 'head')
-    assert.ok(row.text.includes('.ts.net'))
-    assert.ok(row.text.includes('{ownsHost:true}'))
-  }
-})
-
-test('渲染时读的是当前规则：改完配置，同一个订阅者下一次渲染就换了内容', () => {
-  const config = createConfig()
-  const host = createFakeHost()
-  apply(host.ctx, asPluginConfig(config))
-
-  const initial = host.renderIndex()
-  assert.equal(initial.length, 1, '默认的 .ts.net 一开始就有一行')
-  assert.ok(initial[0]?.kind === 'script' && initial[0].text.includes('.ts.net'))
-
-  config.pageHosts.set(['dsh.example.com'])
-  host.emitVolatile([['pageHosts']])
-  const rows = host.renderIndex()
-  assert.equal(rows.length, 1, 'volatile 更新之后，下一次渲染就换成新规则')
-  assert.ok(rows[0]?.kind === 'script' && rows[0].text.includes('dsh.example.com'))
-
-  config.pageHosts.set([])
-  host.emitVolatile([['pageHosts']])
-  assert.deepEqual(host.renderIndex(), [], '显式空表才回到不注入')
+  assert.deepEqual(host.subscribed, ['loader/volatile-update'])
 })
 
 test('名单非空时只放行名单里的用户，作用域销毁后撤销注册', () => {
@@ -153,10 +113,10 @@ test('服务重放（inject 回调跑两轮）只注册一次，销毁后撤销'
   assert.equal(connection.authentication.providers.length, 0, '两轮都清理后撤销')
 })
 
-test('订阅面：只在插件自己的 ctx 上挂两个事件，connection 那层没有事件通道', () => {
+test('订阅面：只在插件自己的 ctx 上挂 volatile 更新', () => {
   const host = createFakeHost()
   apply(host.ctx, asPluginConfig(createConfig()))
-  assert.deepEqual(host.subscribed, ['webserver/index-inject', 'loader/volatile-update'])
+  assert.deepEqual(host.subscribed, ['loader/volatile-update'])
 })
 
 test('connection 形状不对时不注册，且之后名单打开也保持原样', () => {

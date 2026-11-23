@@ -1,8 +1,8 @@
 /**
  * 配置页：插件列表里本插件那个包页上的设置。
  *
- * 只有两个控件，配方照着官方设置页来：外壳用官方 `SettingsForm`（读不到 / 只读的说明、保存按钮、
- * 保存失败的说明、离开页面丢掉草稿），两个字段自己画成多行文本框（一行一条比单行逗号分隔好读）。
+ * 只有一个控件，配方照着官方设置页来：外壳用官方 `SettingsForm`（读不到 / 只读的说明、保存按钮、
+ * 保存失败的说明、离开页面丢掉草稿），字段自己画成多行文本框（一行一条比单行逗号分隔好读）。
  * 官方 `SettingsValueField` 的私有类名抄不到，能抄的只有配方：字号、间距、描边、圆角都按它那份来
  * （styles.css）。
  *
@@ -21,7 +21,7 @@ import { FIELDS, type TailnetAdminCardState } from './form.ts'
 import { fallbackTranslate, type Translate } from './locales.ts'
 
 /** 表单字段名与草稿键是同一串字符串（rules.ts 的规格按它取字段）。 */
-const [PAGE_HOSTS, ALLOWED_USERS] = FIELDS
+const [ALLOWED_USERS] = FIELDS
 
 /**
  * 渲染器递进来的 props：注册时 `inject` 返回的面（其中 `hooks.tailnetAdminCard` 已经变成
@@ -55,7 +55,7 @@ function formLabels(t: Translate): SettingsFormLabels {
 export function TailnetAdminCard(props: TailnetAdminCardProps) {
   const t: Translate = typeof props.t === 'function' ? props.t : fallbackTranslate
   const state = props.useTailnetAdminCard((snapshot) => snapshot)
-  // 读不到、不可写、保存中都不该再改草稿：两个控件吃同一份可用状态。
+  // 读不到、不可写、保存中都不该再改草稿。
   const disabled = !state.available || !state.writable || state.saving
 
   /** 「已覆盖」徽章与恢复按钮：值来自用户层时才出现（与官方字段一致）。 */
@@ -87,31 +87,6 @@ export function TailnetAdminCard(props: TailnetAdminCardProps) {
         onSave={props.save}
         onDiscard={props.discard}
       >
-        <div className="dta-field">
-          <label className="dta-label" htmlFor="dta-page-hosts">{t('pageHostsLabel')}</label>
-          <textarea
-            id="dta-page-hosts"
-            className="dta-input"
-            rows={3}
-            spellCheck={false}
-            autoComplete="off"
-            placeholder={t('pageHostsPlaceholder')}
-            aria-invalid={state.pageHosts.invalid}
-            disabled={disabled}
-            value={state.pageHosts.text}
-            onChange={(event) => {
-              props.edit(PAGE_HOSTS, event.target.value)
-            }}
-          />
-          <p
-            className={state.pageHosts.invalid ? 'dta-invalid' : 'dta-hint'}
-            role={state.pageHosts.invalid ? 'alert' : undefined}
-          >
-            {state.pageHosts.invalid ? t('pageHostsInvalid') : t('pageHostsHint')}
-          </p>
-          {state.pageHosts.overridden ? <div className="dta-meta">{overriddenControls(PAGE_HOSTS)}</div> : null}
-        </div>
-
         <div className="dta-field">
           <label className="dta-label" htmlFor="dta-allowed-users">{t('allowedUsersLabel')}</label>
           <textarea

@@ -1,34 +1,23 @@
 /**
- * dsh-tailnet-admin —— 把 Tailnet / 反向代理页面当作「本机」来用。
+ * dsh-tailnet-admin —— 按 Tailscale 登录名放行已登录的浏览器。
  *
- * 两件事各自独立：`pageHosts` 默认 `.ts.net`，`allowedUsers` 默认空表（不碰认证）。
+ * 向宿主的 `connection.authentication` 注册一个校验器，只放行名单里的 `Tailscale-User-Login`。没带身份头
+ * 的访问仍回落到原来的 token/cookie 校验。**Host/Origin 栅栏不在其中**——它仍然只认回环或
+ * `--trusted-host` 声明过的 authority。校验器只能"不认领"、不能"否决"，这一点写在 connection-auth.ts
+ * 的开头。
  *
- * ① `pageHosts`：往启动 HTML 的 `<head>` 注入一行脚本，把命中的页面标记成
- *    `globalThis.__DSH_TRANSPORT__ = { ownsHost: true }`。客户端的 `isLoopback` 只看这个标志位或
- *    `location.hostname` 是否回环，因此这一行决定了设置页（模型目录、凭据、配置文件编辑器）在
- *    非回环地址上能不能用。
- *
- * ② `allowedUsers`：向宿主的 `connection.authentication` 注册一个校验器，只放行名单里的
- *    `Tailscale-User-Login`。没带身份头的访问仍回落到原来的
- *    token/cookie 校验。**Host/Origin 栅栏不在其中**——它仍然只认回环或 `--trusted-host` 声明过的
- *    authority。新接口只能"不认领"、不能"否决"，这一点写在 connection-auth.ts 的开头。
- *
- * 为什么②默认关闭：这一改，名单里的人打开页面就等于拿到了这台机器的控制权。而且这份名单只有在请求
+ * 为什么默认关闭：这一改，名单里的人打开页面就等于拿到了这台机器的控制权。而且这份名单只有在请求
  * 确实经过 tailscale serve、DSH 只监听回环地址时才可靠。理由与代价写在 docs/internals.md 的决策地图里，
- * 别在这里重复。① 默认非空只是因为它的影响面在浏览器端，且插件本身就是为 Tailnet 页面准备的。
+ * 别在这里重复。
  *
- * 两个字段都是 volatile（见 config.ts）：配置从侧边栏「插件」页的配置表单或 profile 的
- * `cordis.patch.yml` 来；Loader 提交新值后**只发一次 `loader/volatile-update`、不重挂插件**，因此
- * 两个安装点都不能在启动时"算一次"——注入脚本每次渲染 index.html 时按当时的规则重算一行，身份名单
- * 在事件到达时对齐，替换函数本身则每次请求现读名单。改配置不必重启。
+ * 配置是 volatile（见 config.ts）：从侧边栏「插件」页的配置表单或 profile 的 `cordis.patch.yml` 来；
+ * Loader 提交新值后**只发一次 `loader/volatile-update`、不重挂插件**，因此名单在事件到达时对齐，
+ * 校验器每次请求现读名单。改配置不必重启。
  */
-import type { IndexInjection } from '@deepseek-ai/dsh-host-webserver'
-
 import { Config, type PluginConfig } from './config.ts'
 import { registerConnectionAuthentication } from './connection-auth.ts'
 import type { ConnectionContext, HostConnection, HostContext } from './host.ts'
 import { resolveOptions } from './options.ts'
-import { buildPageScript } from './page-hosts.ts'
 
 export const name = 'dsh-tailnet-admin'
 
@@ -48,25 +37,6 @@ function log(message: string): void {
 /** 字符串表在日志里的一行写法；空表说成"（空）"，免得留一段空白看不出所以然。 */
 function listText(items: readonly string[]): string {
   return items.length === 0 ? '（空）' : items.join(', ')
-}
-
-/**
- * 安装注入行。
- *
- * 订阅只注册一次，**每次渲染 index.html 都重读一遍规则**：规则表会因为配置更新而变，而重挂插件
- * 换不来这一行（volatile 更新不重挂）。读取是一次字符串拼接，渲染本身很少发生，这点开销不值一提。
- */
-function installPageScript(ctx: HostContext, config: PluginConfig | undefined): void {
-  const initial = resolveOptions(config).pageHosts
-  log(initial.length === 0
-    ? 'pageHosts 是显式空表：不注入页面脚本（非回环页面仍会报 settings are unavailable in this browser）'
-    : `已注册页面脚本，命中主机：${listText(initial)}`)
-  ctx.on('webserver/index-inject', (table) => {
-    const script = buildPageScript(resolveOptions(config).pageHosts)
-    if (script === undefined) return
-    const row: IndexInjection = { kind: 'script', placement: 'head', text: script }
-    table.push(row)
-  })
 }
 
 /** 已经装上的连接鉴权注册；撤销时按注册时拿到的句柄还原。 */
@@ -147,10 +117,8 @@ function installUserAllowlist(ctx: HostContext, config: PluginConfig | undefined
  * @param config - profile patch / 配置页写入的配置（可能缺省）。
  */
 export function apply(ctx: HostContext, config?: PluginConfig): void {
-  installPageScript(ctx, config)
   installUserAllowlist(ctx, config)
   ctx.on('loader/volatile-update', () => {
-    const now = resolveOptions(config)
-    log(`配置已更新：pageHosts=${listText(now.pageHosts)}，allowedUsers=${listText(now.allowedUsers)}`)
+    log(`配置已更新：allowedUsers=${listText(resolveOptions(config).allowedUsers)}`)
   })
 }
