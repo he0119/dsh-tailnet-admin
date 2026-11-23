@@ -45,27 +45,21 @@ npx @deepseek-ai/dsh plugin --profile web add link:/path/to/dsh-tailnet-admin
 - id: tailnet-admin
   name: '@he0119/dsh-tailnet-admin'
   config:
-    # pageHosts 不写就是默认 .ts.net；自定义域名/反代才需要加
-    # pageHosts: [dsh.example.com]
     allowedUsers: [alice@example.com]   # 你在 Tailscale 里的登录名；留空 = 不碰认证
 ```
 
-重启 DSH（systemd：`systemctl --user restart dsh-web`），然后按下面五条逐一确认 —— 它们分别证明一件不同
+重启 DSH（systemd：`systemctl --user restart dsh-web`），然后按下面四条逐一确认 —— 它们分别证明一件不同
 的事，任何一条不过就还没到"能用"：
 
 ```sh
 # ① 插件到位：启动日志里有 [dsh-tailnet-admin] 那几行
 grep 'dsh-tailnet-admin' ~/.dsh/dsh-web.log | tail -5
 
-# ② 注入生效：无 cookie / 无 token 取根页面，200 且 HTML 里有注入
-#    （默认 .ts.net 就命中；自定义域名要命中 pageHosts）
-curl -s -H 'Host: dsh.example.ts.net' http://127.0.0.1:3080/ | grep -o '__DSH_TRANSPORT__[^<]*' | head -1
-
-# ③ 栅栏还在：未声明的 Host 必须 403（填了 allowedUsers 之后这条依然要成立）
+# ② 栅栏还在：未声明的 Host 必须 403（填了 allowedUsers 之后这条依然要成立）
 curl -s -o /dev/null -w '%{http_code}\n' -X POST -H 'Host: evil.example.com' \
   -H 'Content-Type: application/json' -d '{}' http://127.0.0.1:3080/api/whatever
 
-# ④ 身份名单：名单内放行、名单外拒绝。注意这两个请求是**直接打到回环端口**的，
+# ③ 身份名单：名单内放行、名单外拒绝。注意这两个请求是**直接打到回环端口**的，
 #    所以 Head 里的 Tailscale-User-Login 是手工伪造的；这正是插件要求 DSH 只监听回环的原因。
 curl -s -o /dev/null -w '%{http_code}\n' -H 'Host: dsh.example.ts.net' \
   -H 'Tailscale-User-Login: alice@example.com' http://127.0.0.1:3080/api/nonexistent
@@ -73,21 +67,16 @@ curl -s -o /dev/null -w '%{http_code}\n' -H 'Host: dsh.example.ts.net' \
   -H 'Tailscale-User-Login: bob@example.com' http://127.0.0.1:3080/api/nonexistent
 ```
 
-③ 返回 403 才说明改动没有越过 [AGENTS.md](../AGENTS.md) 里的硬约束 2。④ 的第一条不该是 401，第二条必须是
-401（路由不存在给 404 也没关系，关键是没在认证那一步被挡）。浏览器那一侧最后再确认一次：打开域名页面，
-看 `<head>` 最前有没有那行脚本（DevTools 里 `view-source:` 最直观），以及设置页是否不再报
-`settings are unavailable in this browser`。
+② 返回 403 才说明改动没有越过 [AGENTS.md](../AGENTS.md) 里的硬约束 2。③ 的第一条不该是 401，第二条必须是
+401（路由不存在给 404 也没关系，关键是没在认证那一步被挡）。
 
-⑤ 配置页（客户端半侧只有这一条能动行为，所以它必须真的走一遍）：**设置 → 插件 → dsh-tailnet-admin**
-应当出现两个输入框与当前值；改一次 `allowedUsers` 并保存，`~/.dsh/profiles/web/cordis.patch.yml` 里
+④ 配置页（客户端半侧只有这一条能动行为，所以它必须真的走一遍）：**设置 → 插件 → dsh-tailnet-admin**
+应当出现一个输入框与当前值；改一次 `allowedUsers` 并保存，`~/.dsh/profiles/web/cordis.patch.yml` 里
 `tailnet-admin` 那一段当场变，日志里多一行 `[dsh-tailnet-admin] 配置已更新：…`，并且**不重启**就生效
-（②③④ 此时要依然成立）。默认 `.ts.net` 已经让 Tailnet 页面第一次就能保存；只有自定义域名/反向代理
-还没命中 `pageHosts` 时，页面的保存才是内存模式（页面会明说"只写进这个浏览器"），这一步要么从回环地址
-做，要么先把 `pageHosts` 写进文件。
+（②③ 此时要依然成立）。配置页在登录后的公开地址上就能保存。
 
 ## 撤回
 
-这个插件不留任何持久状态，撤回就是在配置页把 `allowedUsers` 清空、把页面主机清空并保存（显式空表），
-`allowedUsers` 立刻恢复、页面注入下一次打开页面恢复，都不需要重启。想彻底移除：从
-`dsh.profile.bundles` 里删掉包名、重启，可选再
+这个插件不留任何持久状态，撤回就是在配置页把 `allowedUsers` 清空并保存，立刻恢复 token 校验，
+不需要重启。想彻底移除：从 `dsh.profile.bundles` 里删掉包名、重启，可选再
 `npx @deepseek-ai/dsh plugin --profile web remove @he0119/dsh-tailnet-admin`。

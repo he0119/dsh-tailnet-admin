@@ -28,9 +28,8 @@
 
 改动不得越过这几条；越过之前先在这里说清楚理由：
 
-1. **认证边界默认不做事。** `allowedUsers` 默认空表（不碰认证）；`pageHosts` 默认 `['.ts.net']`
-   （Tailnet 的 MagicDNS 后缀，只影响浏览器端的设置持久化）。空名单是"不做事"，不是"拒绝所有人"——
-   别把一个手滑变成全员被挡；要关掉页面注入，就把 `pageHosts` 显式设成空表。
+1. **认证边界默认不做事。** `allowedUsers` 默认空表，也就是不碰认证。空名单是"不做事"，不是
+   "拒绝所有人"——别把一个手滑变成全员被挡。
 2. **不动 Host/Origin 栅栏。** 认证那层可以按名单放行：向宿主的
    `connection.authentication.register` 注册校验器（要求 DSH `0.2.3-alpha.2` 及以上）；栅栏那层
    （`isTrustedApiRequest` / `trustedHosts`）不许碰，也不许在文档里暗示它可以放宽。
@@ -41,8 +40,6 @@
    端是平台基线模块表（`react` / `react/jsx-runtime` 与 `@deepseek-ai/dsh-client-ui-primitives`），其余一律
    内联。插件在宿主进程与页面里跑，多一个依赖就是多一份来源与版本风险。
 5. **不往产物里写死任何机器相关的值。** 主机名、路径、端口只能来自配置。
-6. **注入的脚本必须让路。** `__DSH_TRANSPORT__` 已存在时（桌面壳）一律不覆盖；正文里不得出现
-   `</script`。
 
 ## 提交信息
 
@@ -67,9 +64,8 @@ pnpm run build
 - `test/notes.test.ts` 只核**声明**：`.agents/notes/` 下的路径形状、三行头部、`Status:` 与所在目录
   是否一致、`## Problem` 是不是第一个二级标题、必备章节在不在、`implemented/` 里有没有混进提案
   用语、相对链接能不能解析。改记录格式就同一次改动里改它。
-- 改了注入脚本的形状，就对着真实页面复核一次（浏览器里看 `<head>` 最前有没有那一行），别只信单测。
 - 改了配置语义（名字、默认值、取值来源），README 两份、`cordis.patch.yml` 的注释、`src/config.ts` 的
-  schema、以及配置页那两个字段（`src/client/rules.ts` 的规格与 `src/client/locales.ts` 的文案）必须一起改
+  schema、以及配置页那个字段（`src/client/rules.ts` 的规格与 `src/client/locales.ts` 的文案）必须一起改
   —— 这几处任何一处落后都是错的。
 - 配置页的设置命名空间（`src/client/form.ts` 的 `SETTINGS_NS`）必须等于 profile 里那一行的 entry id：
   `test/client.test.ts` 拿 `cordis.patch.yml` 核这一条。

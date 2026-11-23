@@ -17,10 +17,6 @@ export const NS = 'settings.tailnetAdmin'
 export const zh = {
   configTitle: '配置',
   configNote: '改完点保存，立即生效，不用重启',
-  pageHostsLabel: '设置页可用的域名',
-  pageHostsHint: '默认 .ts.net，Tailnet 地址一般不用改；只有自定义域名或反向代理才需要加。留空保存 = 不启用。',
-  pageHostsInvalid: '这些写法匹配不到任何域名。不要写 *.ts.net、协议、路径、端口；整段后缀写 .ts.net，全部写 *。',
-  pageHostsPlaceholder: 'dsh.example.com',
   allowedUsersLabel: '不用 token 的 Tailscale 用户',
   allowedUsersHint: '一行一个 Tailscale 登录名，比如 alice@example.com（不是设备名）。只对经过 tailscale serve 的访问生效；留空 = 不启用。',
   allowedUsersInvalid: '这些写法匹配不到任何账号。写完整的 Tailscale 登录名，不要写显示名、空格、逗号或通配符。',
@@ -38,10 +34,6 @@ export const zh = {
 export const en: Record<keyof typeof zh, string> = {
   configTitle: 'Configuration',
   configNote: 'Save applies changes immediately; no restart needed',
-  pageHostsLabel: 'Domains where settings work',
-  pageHostsHint: 'Defaults to .ts.net, which covers most Tailnet addresses. Add a custom domain or reverse proxy only when needed. Save an empty box to turn this off.',
-  pageHostsInvalid: 'These cannot match any host. No *.ts.net, scheme, path, port, or trailing dot; write .ts.net for a whole suffix, or * for everything.',
-  pageHostsPlaceholder: 'dsh.example.com',
   allowedUsersLabel: 'Tailscale users without a token',
   allowedUsersHint: 'One Tailscale login per line, for example alice@example.com (not a device name). Only requests through tailscale serve are affected. Save an empty box to turn this off.',
   allowedUsersInvalid: 'These cannot match any user. Write the full Tailscale login name; no display names, spaces, commas, or wildcards.',

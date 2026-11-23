@@ -1,5 +1,4 @@
 import type { VolatileSnapshot } from '@deepseek-ai/cordis'
-import type { IndexInjection } from '@deepseek-ai/dsh-host-webserver'
 
 import type { PluginConfig } from '../src/config.ts'
 import type { AuthenticationProviderLike, ConnectionAuthenticationLike } from '../src/connection-auth.ts'
@@ -19,8 +18,6 @@ export interface FakeHost {
   readonly restorers: (() => void)[]
   /** 订阅过的宿主事件名，按首次订阅顺序。用来核"订阅挂在插件自己的 ctx 上"。 */
   readonly subscribed: string[]
-  /** 模拟一次 index.html 渲染：跑一遍注入订阅方，返回它们填出来的表。 */
-  renderIndex(): IndexInjection[]
   /** 模拟 connection 服务就绪：跑一遍 `inject` 回调。可以调多次，模拟服务重建时的重放。 */
   provideConnection(): void
   /** 模拟 Loader 把 volatile 新值就地提交之后向所属 fiber 发出的实例内事件。 */
@@ -63,11 +60,6 @@ export function createFakeHost(options: { connection?: HostConnection } = {}): F
     get subscribed(): string[] {
       return [...listeners.keys()]
     },
-    renderIndex(): IndexInjection[] {
-      const table: IndexInjection[] = []
-      fire('webserver/index-inject', table)
-      return table
-    },
     provideConnection(): void {
       const connectionCtx: ConnectionContext = {
         connection,
@@ -79,7 +71,7 @@ export function createFakeHost(options: { connection?: HostConnection } = {}): F
       }
       for (const callback of callbacks) callback(connectionCtx)
     },
-    emitVolatile(paths: readonly (readonly string[])[] = [['pageHosts']]): void {
+    emitVolatile(paths: readonly (readonly string[])[] = [['allowedUsers']]): void {
       fire('loader/volatile-update', paths)
     },
     dispose(): void {
@@ -110,18 +102,14 @@ export function volatileRef<T>(initial: T): FakeRef<T> {
   }
 }
 
-/** 两项配置都是引用的假配置：测试拿得到引用本身，才能中途改值。 */
+/** 配置只有一个引用的假配置：测试拿得到引用本身，才能中途改值。 */
 export interface FakeConfig {
-  pageHosts: FakeRef<string[]>
   allowedUsers: FakeRef<string[]>
 }
 
-/** 造一份假配置（pageHosts 用默认 .ts.net，认证名单默认空表）。 */
-export function createConfig(initial: { pageHosts?: string[]; allowedUsers?: string[] } = {}): FakeConfig {
-  return {
-    pageHosts: volatileRef(initial.pageHosts ?? ['.ts.net']),
-    allowedUsers: volatileRef(initial.allowedUsers ?? []),
-  }
+/** 造一份假配置（认证名单默认空表）。 */
+export function createConfig(initial: { allowedUsers?: string[] } = {}): FakeConfig {
+  return { allowedUsers: volatileRef(initial.allowedUsers ?? []) }
 }
 
 /** 造一个带着 Tailscale 登录名的请求：形状与宿主传给校验器的 `ConnectionTrustRequest` 一致。 */
@@ -182,4 +170,3 @@ export function createAdmissionConnection(
     },
   }
 }
-

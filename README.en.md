@@ -10,38 +10,26 @@
 
 </div>
 
-Treat Tailnet / reverse-proxy pages as local: make DSH's settings pages work from a non-loopback origin, and
-let only named Tailscale users in without a token (the Host/Origin fence stays).
+Let named Tailscale users into the DSH UI without a token: opening DSH from the tailnet no longer means
+carrying `?token=` around, and the Host/Origin fence stays as it is.
 
-> ⚠️ This plugin touches an authentication boundary: **the authentication setting does nothing by default**, so
-> installing it never widens access; `pageHosts` defaults to `.ts.net` and only affects browser-side settings
-> persistence. Read [Security boundary](#security-boundary-read-this) before filling in `allowedUsers`.
+> ⚠️ This plugin touches an authentication boundary: **it does nothing by default**, so installing it never
+> widens access. Read [Security boundary](#security-boundary-read-this) before filling in `allowedUsers`.
 
 ## What it fixes
 
-Opening DSH from `https://dsh.example.ts.net` (any Tailnet service name or reverse-proxy hostname) runs into two
-independent problems:
-
-**① Settings pages are unusable**: the model/provider directory, credentials and the config-file editor report
-`settings are unavailable in this browser`. DSH's browser half only treats two cases as "local" — the
-`globalThis.__DSH_TRANSPORT__ = { ownsHost: true }` flag injected by the desktop shell, or a page whose
-`location.hostname` is loopback (`localhost` / `127.0.0.0/8` / `[::1]`). A page served from a domain satisfies
-neither, so settings fall back to process-local persistence and report themselves unavailable. **That decision
-lives in the browser half; the server-side `--trusted-host` cannot influence it.**
-
-**② Every restart asks for a token again**: the host judges `/api` with two layers — a Host/Origin fence plus a
-browser-session check. The latter wants a cookie minted from `?token=`, bound to the request authority; the token
-is regenerated on each start, and the cookie stops matching as soon as the authority changes.
+Opening DSH from `https://dsh.example.ts.net` (a Tailnet service name) means passing two layers: a Host/Origin
+fence and a browser-session check. The session check wants a cookie minted from `?token=`, bound to the request
+authority; the token is regenerated on each start, and the cookie stops matching as soon as the authority changes.
 
 When traffic comes in through Tailscale, `tailscale serve` adds `Tailscale-User-Login` (the requester's login
 name, for example `alice@example.com`) to the request it forwards to DSH, and removes any incoming header of that
-name first so clients cannot forge it. The plugin can trust that header alone: listed users no longer need a
-token, requests carrying it from anyone else are refused, and requests without it (no tailscale serve, Funnel,
-tagged devices) fall back to the original cookie check.
+name first so clients cannot forge it. The plugin registers a verifier on the host's
+`connection.authentication` that trusts that header alone: listed users no longer need a token, and requests
+without it (no tailscale serve, Funnel, tagged devices) fall back to the original cookie check.
 
-The plugin splits those into two independent settings: `pageHosts` for ① (defaults to `.ts.net`) and
-`allowedUsers` for ② (defaults to empty). Rationale and cost live in
-[.agents/notes/implemented/](.agents/notes/implemented) (Chinese).
+After login, the settings page, model directory, and plugin config all work over the public address; only the
+config-file editor under **General** stays loopback-only.
 
 ## Install
 
@@ -88,33 +76,24 @@ the `[dsh-tailnet-admin] …` lines when it is in place.
 **Settings → Plugins → `dsh-tailnet-admin`**: the form sits right below the description on this plugin's own
 bundle page.
 
-- **Domains where settings work**: one per line; the default is `.ts.net` (the Tailnet MagicDNS suffix).
-  A leading `.` means suffix match (`.ts.net` matches `a.ts.net`, not the bare `ts.net`); an exact hostname and
-  `*` work too. Put a custom domain or reverse-proxy host here. Saving an empty box means no injection;
-  **Reset** returns to `.ts.net`.
 - **Tailscale users without a token**: one per line, the full Tailscale login name (for example
   `alice@example.com`), case-insensitive. An empty box leaves the browser session check alone. Read
   "Security boundary" before filling it in.
 
-Press **Save**. `allowedUsers` takes effect immediately, `pageHosts` applies to the **next page load**
-(refresh once); neither needs a DSH restart.
+Press **Save**; it takes effect immediately, with no DSH restart.
 
 The login name is your user account in the Tailscale admin console (usually an email), not a device or display
 name. When the plugin refuses someone it writes the real login name to the log
 (`[dsh-tailnet-admin] 没有自动放行不在 allowedUsers 里的…`); copy that line.
 
-> The default `.ts.net` already covers common Tailnet domains, so a page opened from `*.ts.net` can save these
-> settings on the first visit — no loopback detour. Only when the page host is not under `.ts.net` (a custom
-> domain or reverse proxy) do you need to open DSH **over a loopback address** (`http://localhost:3080`) once,
-> or write the profile's `cordis.patch.yml` directly:
+The config page saves over the public address once you are logged in, with no loopback detour. You can also
+write the profile's `cordis.patch.yml` directly:
 
 ```yaml
 # ~/.dsh/profiles/web/cordis.patch.yml
 - id: tailnet-admin            # this id is a fixed contract of the plugin: the config page reads this section by it, do not rename
   name: '@he0119/dsh-tailnet-admin'
   config:
-    pageHosts:
-      - dsh.example.com      # omit this setting for the default .ts.net; custom domains/reverse proxies only
     allowedUsers:
       - alice@example.com    # your Tailscale login name; empty = leave authentication alone
 ```
@@ -123,25 +102,21 @@ name. When the plugin refuses someone it writes the real login name to the log
 
 | Setting | Default | Effect |
 | --- | --- | --- |
-| `pageHosts` | `['.ts.net']` | Which page hosts count as local. A leading `.` means suffix match; `*` matches everything; an explicit empty array injects nothing |
 | `allowedUsers` | `[]` | Which Tailscale login names skip the browser session check. Empty = leave authentication alone |
 
 Both places edit the same config: **the plugin config page** (`Settings → Plugins → dsh-tailnet-admin`) saves
 into exactly the `config` block of that profile `cordis.patch.yml` row. Editing the file by hand and editing the
 page are equivalent — there is no precedence.
 
-- Both fields take one entry per line; the page also accepts commas, so a line copied from this document needs no
+- The list takes one entry per line; the page also accepts commas, so a line copied from this document needs no
   editing.
-- Omitting `pageHosts` uses the default `.ts.net`; saving an empty box writes an **explicit empty array** (inject
-  nothing), not "fall back to the default".
-- Entries that can never match are **blocked at save time** on the page: hosts only understand `*`, a
-  dot-prefixed suffix, and an exact hostname; login names are matched case-insensitively as a whole printable
-  ASCII string (no wildcards, commas, display names, spaces, or non-ASCII). Anything else would sit there silently
-  doing nothing, so it is better to stop the save.
+- Entries that can never match are **blocked at save time** on the page: login names are matched
+  case-insensitively as a whole printable ASCII string (no wildcards, commas, display names, spaces, or
+  non-ASCII). Anything else would sit there silently doing nothing, so it is better to stop the save.
 - An `allowedUsers` value that is not an array of strings (a single string, for example) makes the Loader
   **refuse the entry** instead of guessing what it meant.
 
-A systemd deployment only owns the fence layer; the two settings are not environment variables (see the decision
+A systemd deployment only owns the fence layer; the setting is not an environment variable (see the decision
 record under [.agents/notes/implemented/](.agents/notes/implemented), in Chinese):
 
 ```ini
@@ -183,34 +158,28 @@ ExecStart=%h/.npm/_npx/<hash>/node_modules/.bin/dsh web --host 127.0.0.1 --port 
 - What remains is the **Host/Origin fence**: loopback or a declared authority, plus a rejection of
   `Sec-Fetch-Site: cross-site`. It stops DNS rebinding and cross-site requests; it does **not** stop someone who
   simply knows the address.
-- `pageHosts`, by contrast, only affects **browser-side** settings persistence and UI availability. It changes no
-  server-side decision. The `.ts.net` default follows from the plugin's scope, not from an authentication choice;
-  clear the list on the config page if you want no injection at all.
+- The settings page, model directory, and plugin config work over the public address once you are logged in; the
+  config-file editor under **General** stays loopback-only.
 
 > Host versions: this plugin requires DSH `0.2.3-alpha.2` or newer.
 
-Suggested posture: leave `pageHosts` at `.ts.net` and add a custom domain only when needed; put only your own
-login name in `allowedUsers`, never "everyone on the tailnet". To revert authentication, clear the list on the
-config page (or remove `allowedUsers` from `cordis.patch.yml`): the token check returns immediately. To stop
-page injection as well, clear the page hosts and save (an explicit empty array); it applies on the next page
-load. There is no state to clean up.
+Suggested posture: put only your own login name in `allowedUsers`, never "everyone on the tailnet". To revert
+authentication, clear the list on the config page (or remove `allowedUsers` from `cordis.patch.yml`): the token
+check returns immediately. There is no state to clean up.
 
 > Upgrading from the old version: `disableBrowserAuth: true` is no longer in the schema, so the Loader silently
 > ignores it — the effect is the original authentication coming back. Replace it with an `allowedUsers` list, or
-> the page will start asking for a token again. Also, an omitted `pageHosts` now defaults to `.ts.net` (it used to
-> be empty); configs that already set a value, including `[]`, keep it.
+> the page will start asking for a token again; an old `pageHosts` key is ignored too.
 
 ## Troubleshooting
 
 | Symptom | Cause |
 | --- | --- |
-| Still `settings are unavailable in this browser` | The current page host does not match `pageHosts` (the default only covers `.ts.net`; add custom domains/reverse proxies), or the page was not refreshed |
-| Do not want injection on any page | Clear the page hosts on the config page and save (an explicit empty array); deleting the setting falls back to `.ts.net` |
 | Requests fail with 403 | The Host/Origin fence rejected them: add `--trusted-host <authority>` to `dsh web` |
 | Still asked for `?token=` | `allowedUsers` is empty; the current user's login name is not listed; or the request did not come through tailscale serve (tagged device, Funnel, direct connection), so there is no `Tailscale-User-Login` |
 | A listed user is refused too | The login name is wrong (a display name or device name), or the request did not come through tailscale serve; the log line "没有自动放行…" shows the real login name |
 | No `[dsh-tailnet-admin]` line in the startup log | The name is missing from `dsh.profile.bundles`, or the package is not installed (check with `dsh --profile web --dump-config \| grep tailnet-admin`) |
-| The config page says "this browser only" and the profile does not change | The current page is not treated as this machine: open DSH over loopback once, or edit `cordis.patch.yml` directly |
+| The "open config file" button is missing | That editor is loopback-only; it is not available from the tailnet |
 | The config page says the section cannot be read | The `id` of that `cordis.patch.yml` row is not `tailnet-admin`, or the row is not enabled |
 
 ## Development

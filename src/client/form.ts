@@ -22,7 +22,7 @@ import type {
   SettingsFormShell,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 
-import { allowedUsersField, pageHostsField } from './rules.ts'
+import { allowedUsersField } from './rules.ts'
 
 /**
  * 设置命名空间。
@@ -33,18 +33,16 @@ import { allowedUsersField, pageHostsField } from './rules.ts'
  */
 export const SETTINGS_NS = 'tailnet-admin'
 
-/** 这一页编辑的两个字段（插件没有第三个配置项）。 */
-export const FIELDS = Object.freeze(['pageHosts', 'allowedUsers'] as const)
+/** 这一页编辑的字段（插件只有这一个配置项）。 */
+export const FIELDS = Object.freeze(['allowedUsers'] as const)
 
 /** 这一段设置里这一页读写的形状。 */
 export interface TailnetAdminSettings {
-  pageHosts?: string[]
   allowedUsers?: string[]
 }
 
-/** 页面渲染需要的投影：表单外壳状态 + 两个字段各自的草稿状态。 */
+/** 页面渲染需要的投影：表单外壳状态 + 字段的草稿状态。 */
 export interface TailnetAdminCardState extends SettingsFormShell {
-  pageHosts: SettingsFieldState
   allowedUsers: SettingsFieldState
 }
 
@@ -92,10 +90,7 @@ export const UNSERVED: SettingsFormScope<TailnetAdminSettings> = Object.freeze({
 export function createCardForm(
   scope: SettingsFormScope<TailnetAdminSettings>,
 ): SettingsFormModel<TailnetAdminSettings> {
-  return new SettingsFormModel<TailnetAdminSettings>(scope, [
-    pageHostsField(FIELDS[0]),
-    allowedUsersField(FIELDS[1]),
-  ])
+  return new SettingsFormModel<TailnetAdminSettings>(scope, [allowedUsersField(FIELDS[0])])
 }
 
 /**
@@ -106,8 +101,7 @@ export function createCardForm(
 export function bindCard(form: SettingsFormModel<TailnetAdminSettings>): CardSource {
   return form.bind(() => ({
     ...form.shell(),
-    pageHosts: form.field(FIELDS[0]),
-    allowedUsers: form.field(FIELDS[1]),
+    allowedUsers: form.field(FIELDS[0]),
   }))
 }
 

@@ -1,6 +1,6 @@
 import type { Volatile } from '@deepseek-ai/cordis'
 
-import { DEFAULT_PAGE_HOSTS, type PluginConfig, type ResolvedOptions } from './config.ts'
+import type { PluginConfig, ResolvedOptions } from './config.ts'
 
 /**
  * 读一个 volatile 配置引用。
@@ -13,22 +13,6 @@ import { DEFAULT_PAGE_HOSTS, type PluginConfig, type ResolvedOptions } from './c
 export function readVolatile<T>(field: Volatile<T> | undefined): T | undefined {
   const candidate = field as { get?: () => T } | undefined
   return typeof candidate?.get === 'function' ? candidate.get() : undefined
-}
-
-/**
- * 规整规则表：去空白、转小写、丢掉空项与重复项（顺序保留）。
- *
- * `undefined` 与空表的含义不同：字段缺席用默认的 `.ts.net`，显式空表就是"一行都不注入"
- * （用户在配置页里清空并保存走的是后者）。
- */
-export function normalizePageHosts(patterns: readonly string[] | undefined): string[] {
-  if (patterns === undefined) return [...DEFAULT_PAGE_HOSTS]
-  const rules: string[] = []
-  for (const raw of patterns) {
-    const rule = String(raw).trim().toLowerCase()
-    if (rule !== '' && !rules.includes(rule)) rules.push(rule)
-  }
-  return rules
 }
 
 /**
@@ -47,7 +31,7 @@ export function normalizeAllowedUsers(users: readonly string[] | undefined): str
 }
 
 /**
- * 读一次配置，得到当前生效的两项配置。
+ * 读一次配置，得到当前生效的名单。
  *
  * 每次读都重新取值（见 readVolatile），因此"什么时候读"就是"哪一刻的配置"：调用点拿着这个结果
  * 完成一次操作，中途配置再变也不会把这次操作撕成两半。
@@ -55,8 +39,5 @@ export function normalizeAllowedUsers(users: readonly string[] | undefined): str
  * @returns 当前生效的取值。
  */
 export function resolveOptions(config: PluginConfig | undefined): ResolvedOptions {
-  return {
-    pageHosts: normalizePageHosts(readVolatile(config?.pageHosts)),
-    allowedUsers: normalizeAllowedUsers(readVolatile(config?.allowedUsers)),
-  }
+  return { allowedUsers: normalizeAllowedUsers(readVolatile(config?.allowedUsers)) }
 }
